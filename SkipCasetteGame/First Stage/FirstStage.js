@@ -34,7 +34,7 @@ var CabinetTexture = textureLoader.load("./resources/textures/CabinetTexture.jpg
 CabinetTexture.wrapS = THREE.RepeatWrapping;
 CabinetTexture.wrapT = THREE.RepeatWrapping;
 CabinetTexture.repeat.set(1, 1);
-var KeyTexture = textureLoader.load("KeyTexture.jpg");
+var KeyTexture = textureLoader.load("./resources/textures/KeyTexture.jpg");
 KeyTexture.wrapS = THREE.RepeatWrapping;
 KeyTexture.wrapT = THREE.RepeatWrapping;
 KeyTexture.repeat.set(1, 1)
