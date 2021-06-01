@@ -40,20 +40,6 @@ KeyTexture.wrapT = THREE.RepeatWrapping;
 KeyTexture.repeat.set(1, 1)
 
 //object interaction
-const onKeyDown = function (event) {
-    switch (event.key) {
-        case "e":
-	    if (camera.position.z > 12) {
-                if (camera.position.x < -10) {
-                    getKey();
-                }
-                else if (camera.position < 5 && camera.position > -5) {
-                    openDoor();
-                }
-            }
-    }
-};
-
 function getKey() {
     //show acquisition
     hasKey = 1;
@@ -191,6 +177,16 @@ startButton.addEventListener('click', function () {
             case 'KeyD':
                 moveRight = true;
                 break;
+	    case 'KeyE':
+	        if (camera.position.z > 12) {
+                    if (camera.position.x < -10) {
+                        getKey();
+                    }
+                    else if (camera.position < 5 && camera.position > -5) {
+                        openDoor();
+                    }
+                }
+		break;
             }
     };
     const onKeyUp = function ( event ) {
