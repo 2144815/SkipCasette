@@ -3,6 +3,7 @@ import { GLTFLoader } from 'https://unpkg.com/three@0.125.2/examples/jsm/loaders
 import { OrbitControls } from 'https://unpkg.com/three@0.125.2/examples/jsm/controls/OrbitControls.js';
 import { PointerLockControls } from 'https://unpkg.com/three@0.125.2/examples/jsm/controls/PointerLockControls.js';
 
+var hasKey = 0;
 //for controls 
 var moveForward = false;
 var moveBackward = false;
@@ -33,6 +34,41 @@ var CabinetTexture = textureLoader.load("./resources/textures/CabinetTexture.jpg
 CabinetTexture.wrapS = THREE.RepeatWrapping;
 CabinetTexture.wrapT = THREE.RepeatWrapping;
 CabinetTexture.repeat.set(1, 1);
+var KeyTexture = textureLoader.load("KeyTexture.jpg");
+KeyTexture.wrapS = THREE.RepeatWrapping;
+KeyTexture.wrapT = THREE.RepeatWrapping;
+KeyTexture.repeat.set(1, 1)
+
+//object interaction
+const onKeyDown = function (event) {
+    switch (event.key) {
+        case "e":
+	    if (camera.position.z > 12) {
+                if (camera.position.x < -10) {
+                    getKey();
+                }
+                else if (camera.position < 5 && camera.position > -5) {
+                    openDoor();
+                }
+            }
+    }
+};
+
+function getKey() {
+    //show acquisition
+    hasKey = 1;
+    scene.remove(cube1);
+}
+
+function openDoor() {
+    if (hasKey == 1) {
+        //show message
+        //scene transition
+    }
+    else {
+        //show message
+    }
+}
 
 //planemeshs
 var meshfloor = new THREE.Mesh(
@@ -178,12 +214,6 @@ startButton.addEventListener('click', function () {
     document.addEventListener( 'keydown', onKeyDown );
     document.addEventListener( 'keyup', onKeyUp );
 
-
-function getKey() {
-    //show acquisition
-    //set boolean for door
-}
-
 var geometry = new THREE.BoxGeometry();
 var meshBasicMaterial = new THREE.MeshBasicMaterial({
     //blue color: 0x0095DD,
@@ -197,6 +227,12 @@ cube0.position.z += 12;
 cube0.position.x += 11;
 cube0.scale.set(2, 1, 2);
 scene.add(cube0);
+var cube1 = new THREE.Mesh(geometry, meshKeyMaterial);
+cube1.position.z += 11.4;
+cube1.position.x -= 12;
+cube1.position.y += 1.5;
+cube1.scale.set(1, 0.001, 0.75);
+scene.add(cube1);
 
 
 var wallgeom = new THREE.BoxGeometry(0.5, 10, 7);
