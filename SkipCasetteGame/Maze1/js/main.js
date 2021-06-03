@@ -1,11 +1,16 @@
 import * as THREE from 'https://unpkg.com/three@0.125.2/build/three.module.js';
 import {OrbitControls} from 'https://unpkg.com/three@0.125.2/examples/jsm/controls/OrbitControls.js'
 import {PointerLockControls} from 'https://unpkg.com/three@0.125.2/examples/jsm/controls/PointerLockControls.js'
+import { GLTFLoader } from 'https://unpkg.com/three@0.125.2/examples/jsm/loaders/GLTFLoader.js';
 
 var moveForward = false;
 var moveBackward = false;
 var moveLeft = false;
 var moveRight = false;
+
+const objects = [];
+
+let raycaster;
 
 var prevTime = performance.now();
 const velocity = new THREE.Vector3();
@@ -18,7 +23,7 @@ renderer.shadowMap.type = THREE.BasicShadowMap;
 document.body.appendChild(renderer.domElement);
 
 var camera = new THREE.PerspectiveCamera(90, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(-5, 5, -70);
+camera.position.set(5, 5, -45);
 camera.lookAt(-5, 2, 0);
 
 var scene = new THREE.Scene();
@@ -72,18 +77,62 @@ startButton.addEventListener('click', function () {
     document.addEventListener( 'keydown', onKeyDown );
     document.addEventListener( 'keyup', onKeyUp );
 
+    raycaster = new THREE.Raycaster( new THREE.Vector3(), new THREE.Vector3( 0, - 1, 0 ), 0, 10 );
+
 
 var textureLoader = new THREE.TextureLoader()
 
 var ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight( 0xffffff, 1 );
+const directionalLight = new THREE.DirectionalLight( 0xffff00, 0.3 );
 directionalLight.castShadow = true;
 directionalLight.position.set(10, 1, 10);
 scene.add( directionalLight );
 
+const light = new THREE.PointLight( 0xffff00, 1, 10 );
+light.position.set( 10, 10, 10 );
+scene.add( light );
+
 function init(){
+    //start door
+    var loader = new GLTFLoader();
+    loader.load('./resources/Door.gltf', function (gltf) {
+    gltf.scene.scale.set(5, 3, 4);
+    gltf.scene.position.z = -50;
+    gltf.scene.position.x += 5;
+	scene.add(gltf.scene);
+
+    gltf.scene.traverse(function (node) {
+        if (node instanceof THREE.Mesh) {
+            objects.push(node);
+        }
+    });
+
+    }, undefined, function (error) {
+
+	    console.error(error);
+
+    });
+    //end door
+    loader.load('./resources/Door.gltf', function (gltf) {
+        gltf.scene.scale.set(5, 3, 4);
+        gltf.scene.position.z = 50;
+        gltf.scene.position.x += 10;
+        gltf.scene.rotation.y -= Math.PI;
+        scene.add(gltf.scene);
+    
+        gltf.scene.traverse(function (node) {
+            if (node instanceof THREE.Mesh) {
+                objects.push(node);
+            }
+        });
+    
+        }, undefined, function (error) {
+    
+            console.error(error);
+    
+        });
     
     var floorTexture = textureLoader.load("./resources/grass5.jpg");
     floorTexture.wrapS = THREE.RepeatWrapping;
@@ -92,7 +141,7 @@ function init(){
     
     var meshFloor = new THREE.Mesh(
         new THREE.CircleGeometry(100, 100),
-        new THREE.MeshPhongMaterial(
+        new THREE.MeshBasicMaterial(
             {
                 wireframe: false,
                 map: floorTexture, 
@@ -172,8 +221,8 @@ function init(){
     //Built side walls first then from top to bottom
     
     var crateTexture = textureLoader.load("./resources/wall3.jpg");
-    crateTexture.wrapS = THREE.RepeatWrapping;
-    crateTexture.wrapT = THREE.RepeatWrapping;
+    crateTexture.wrapS = THREE.ClampToEdgeMapping;
+    crateTexture.wrapT = THREE.ClampToEdgeMapping;
     crateTexture.repeat.set(1,1);
 
     var crate0 = new THREE.Mesh(
@@ -193,6 +242,7 @@ function init(){
     crate0.position.set(50, 5, 0);
     crate0.rotation.y += Math.PI/2
     scene.add(crate0);
+    objects.push( crate0 );
     
     var crate1 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -207,10 +257,11 @@ function init(){
     crate1.castShadow = true;
     crate1.receiveShadow = true;
 
-    crate1.position.set(35, 5, 50);
-    crate1.scale.set(30, 10);
+    crate1.position.set(30, 5, 50);
+    crate1.scale.set(40, 10);
 
     scene.add(crate1);
+    objects.push( crate1 );
 
     var crate2 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -229,6 +280,7 @@ function init(){
     crate2.scale.set(60, 10);
 
     scene.add(crate2);
+    objects.push( crate2 );
 
     var crate3 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -249,6 +301,7 @@ function init(){
     crate3.rotation.y += Math.PI/2
 
     scene.add(crate3);
+    objects.push( crate3 );
 
     var crate4 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -268,6 +321,7 @@ function init(){
     crate4.scale.set(10, 10);
 
     scene.add(crate4);
+    objects.push( crate4 );
 
     var crate5 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -287,6 +341,7 @@ function init(){
     crate5.scale.set(10, 10);
 
     scene.add(crate5);
+    objects.push( crate5 );
 
     var crate6 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -305,6 +360,7 @@ function init(){
     crate6.scale.set(20, 10);
 
     scene.add(crate6);
+    objects.push( crate6 );
 
     var crate7 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -323,6 +379,7 @@ function init(){
     crate7.scale.set(10, 10);
 
     scene.add(crate7);
+    objects.push( crate7 );
 
     var crate8 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -341,6 +398,7 @@ function init(){
     crate8.scale.set(10, 10);
 
     scene.add(crate8);
+    objects.push( crate8 );
 
     var crate9 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -360,6 +418,7 @@ function init(){
     crate9.scale.set(10, 10);
 
     scene.add(crate9);
+    objects.push( crate9 );
 
     var crate10 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -379,6 +438,7 @@ function init(){
     crate10.scale.set(20, 10);
 
     scene.add(crate10);
+    objects.push( crate10 );
 
     var crate11 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -398,6 +458,7 @@ function init(){
     crate11.scale.set(10, 10);
 
     scene.add(crate11);
+    objects.push( crate11 );
 
     var crate12 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -417,6 +478,7 @@ function init(){
     crate12.scale.set(10, 10);
 
     scene.add(crate12);
+    objects.push( crate12 );
 
     var crate13 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -435,6 +497,7 @@ function init(){
     crate13.scale.set(20, 10);
 
     scene.add(crate13);
+    objects.push( crate13 );
 
     var crate14 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -453,6 +516,7 @@ function init(){
     crate14.scale.set(30, 10);
 
     scene.add(crate14);
+    objects.push( crate14 );
 
     var crate15 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -472,6 +536,7 @@ function init(){
     crate15.scale.set(10, 10);
 
     scene.add(crate15);
+    objects.push( crate15 );
 
     var crate16 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -491,6 +556,7 @@ function init(){
     crate16.scale.set(10, 10);
 
     scene.add(crate16);
+    objects.push( crate16 );
 
     var crate17 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -510,6 +576,7 @@ function init(){
     crate17.scale.set(20, 10);
 
     scene.add(crate17);
+    objects.push( crate17 );
 
     var crate18 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -528,6 +595,7 @@ function init(){
     crate18.scale.set(20, 10);
 
     scene.add(crate18);
+    objects.push( crate18 );
 
     var crate19 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -546,6 +614,7 @@ function init(){
     crate19.scale.set(40, 10);
 
     scene.add(crate19);
+    objects.push( crate19 );
 
     var crate20 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -564,6 +633,7 @@ function init(){
     crate20.scale.set(10, 10);
 
     scene.add(crate20);
+    objects.push( crate20 );
 
     var crate21 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -583,6 +653,7 @@ function init(){
     crate21.scale.set(20, 10);
 
     scene.add(crate21);
+    objects.push( crate21 );
 
     var crate22 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -602,6 +673,7 @@ function init(){
     crate22.scale.set(10, 10);
 
     scene.add(crate22);
+    objects.push( crate22 );
 
     var crate23 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -620,6 +692,7 @@ function init(){
     crate23.scale.set(10, 10);
 
     scene.add(crate23);
+    objects.push( crate23 );
 
     var crate24 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -638,6 +711,7 @@ function init(){
     crate24.scale.set(30, 10);
 
     scene.add(crate24);
+    objects.push( crate24 );
 
     var crate25 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -656,6 +730,7 @@ function init(){
     crate25.scale.set(10, 10);
 
     scene.add(crate25);
+    objects.push( crate25 );
 
     var crate26 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -675,6 +750,7 @@ function init(){
     crate26.scale.set(10, 10);
 
     scene.add(crate26);
+    objects.push( crate26 );
 
     var crate27 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -694,6 +770,7 @@ function init(){
     crate27.scale.set(10, 10);
 
     scene.add(crate27);
+    objects.push( crate27 );
 
     var crate28 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -712,6 +789,7 @@ function init(){
     crate28.scale.set(10, 10);
 
     scene.add(crate28);
+    objects.push( crate28 );
 
     var crate29 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -730,6 +808,7 @@ function init(){
     crate29.scale.set(10, 10);
 
     scene.add(crate29);
+    objects.push( crate29 );
 
     var crate30 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -748,6 +827,7 @@ function init(){
     crate30.scale.set(50, 10);
 
     scene.add(crate30);
+    objects.push( crate30 );
 
     var crate31 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -767,6 +847,7 @@ function init(){
     crate31.scale.set(10, 10);
 
     scene.add(crate31);
+    objects.push( crate31 );
 
     var crate32 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -786,6 +867,7 @@ function init(){
     crate32.scale.set(10, 10);
 
     scene.add(crate32);
+    objects.push( crate32 );
 
     var crate33 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -805,6 +887,7 @@ function init(){
     crate33.scale.set(10, 10);
 
     scene.add(crate33);
+    objects.push( crate33 );
 
     var crate34 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -823,6 +906,7 @@ function init(){
     crate34.scale.set(20, 10);
 
     scene.add(crate34);
+    objects.push( crate34 );
 
     var crate35 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -841,6 +925,7 @@ function init(){
     crate35.scale.set(30, 10);
 
     scene.add(crate35);
+    objects.push( crate35 );
 
     var crate36 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -860,6 +945,7 @@ function init(){
     crate36.scale.set(30, 10);
 
     scene.add(crate36);
+    objects.push( crate36 );
 
     var crate37 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -879,6 +965,7 @@ function init(){
     crate37.scale.set(20, 10);
 
     scene.add(crate37);
+    objects.push( crate37 );
 
     var crate38 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -898,6 +985,7 @@ function init(){
     crate38.scale.set(30, 10);
 
     scene.add(crate38);
+    objects.push( crate38 );
 
     var crate39 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -916,6 +1004,7 @@ function init(){
     crate39.scale.set(10, 10);
 
     scene.add(crate39);
+    objects.push( crate39 );
 
     var crate40 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -934,6 +1023,7 @@ function init(){
     crate40.scale.set(20, 10);
 
     scene.add(crate40);
+    objects.push( crate40 );
 
     var crate41 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -952,6 +1042,7 @@ function init(){
     crate41.scale.set(20, 10);
 
     scene.add(crate41);
+    objects.push( crate41 );
 
     var crate42 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -971,6 +1062,7 @@ function init(){
     crate42.scale.set(10, 10);
 
     scene.add(crate42);
+    objects.push( crate42 );
 
     var crate43 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -990,6 +1082,7 @@ function init(){
     crate43.scale.set(20, 10);
 
     scene.add(crate43);
+    objects.push( crate43 );
 
 
     var crate44 = new THREE.Mesh(
@@ -1009,6 +1102,7 @@ function init(){
     crate44.scale.set(10, 10);
 
     scene.add(crate44);
+    objects.push( crate44 );
 
     var crate45 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1027,6 +1121,7 @@ function init(){
     crate45.scale.set(30, 10);
 
     scene.add(crate45);
+    objects.push( crate45 );
 
     var crate46 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1046,6 +1141,7 @@ function init(){
     crate46.scale.set(20, 10);
 
     scene.add(crate46);
+    objects.push( crate46 );
 
     var crate47 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1065,6 +1161,7 @@ function init(){
     crate47.scale.set(20, 10);
 
     scene.add(crate47);
+    objects.push( crate47 );
 
     var crate48 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1084,6 +1181,7 @@ function init(){
     crate48.scale.set(10, 10);
 
     scene.add(crate48);
+    objects.push( crate48 );
 
     var crate49 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1102,6 +1200,7 @@ function init(){
     crate49.scale.set(10, 10);
 
     scene.add(crate49);
+    objects.push( crate49);
 
     var crate50 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1120,6 +1219,7 @@ function init(){
     crate50.scale.set(10, 10);
 
     scene.add(crate50);
+    objects.push( crate50 );
 
     var crate51 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1138,6 +1238,7 @@ function init(){
     crate51.scale.set(10, 10);
 
     scene.add(crate51);
+    objects.push( crate51 );
 
     var crate52 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1157,6 +1258,7 @@ function init(){
     crate52.scale.set(10, 10);
 
     scene.add(crate52);
+    objects.push( crate52 );
 
     var crate53 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1176,6 +1278,7 @@ function init(){
     crate53.scale.set(10, 10);
 
     scene.add(crate53);
+    objects.push( crate53 );
 
     var crate54 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1190,10 +1293,11 @@ function init(){
     crate54.castShadow = true;
     crate54.receiveShadow = true;
 
-    crate54.position.set(25, 5, -50);
-    crate54.scale.set(50, 10);
+    crate54.position.set(20, 5, -50);
+    crate54.scale.set(60, 10);
 
     scene.add(crate54);
+    objects.push( crate54 );
 
     var crate55 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -1212,6 +1316,7 @@ function init(){
     crate55.scale.set(40, 10);
 
     scene.add(crate55);
+    objects.push( crate55 );
 
 
 
@@ -1231,6 +1336,13 @@ function animate(){
     requestAnimationFrame(animate);
     const time = performance.now();
     if ( controls.isLocked === true ) {
+
+        raycaster.ray.origin.copy( controls.getObject().position );
+
+        const intersections = raycaster.intersectObjects( objects );
+
+		const onObject = intersections.length > 0;
+
         const delta = ( time - prevTime ) / 1000;
         velocity.x -= velocity.x * 15.0 * delta;
 		velocity.z -= velocity.z * 15.0 * delta;
@@ -1239,6 +1351,14 @@ function animate(){
         direction.normalize();
         if ( moveForward || moveBackward ) velocity.z -= direction.z * 400.0 * delta;
 		if ( moveLeft || moveRight ) velocity.x -= direction.x * 400.0 * delta;
+
+        if ( onObject === true ) {
+
+            velocity.x = -(velocity.x*2);
+            velocity.z = -(velocity.z*2);
+            velocity.y = 0;
+        }
+
         controls.moveRight( - velocity.x * delta );
 		controls.moveForward( - velocity.z * delta );
     
