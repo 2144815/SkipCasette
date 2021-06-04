@@ -14,8 +14,6 @@ var prevTime = performance.now();
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 
-
-
 //textures
 var textureLoader = new THREE.TextureLoader();
 var floorTexture = textureLoader.load("./resources/textures/01tizeta_floor_d.png");
@@ -34,10 +32,41 @@ var CabinetTexture = textureLoader.load("./resources/textures/CabinetTexture.jpg
 CabinetTexture.wrapS = THREE.RepeatWrapping;
 CabinetTexture.wrapT = THREE.RepeatWrapping;
 CabinetTexture.repeat.set(1, 1);
-var KeyTexture = textureLoader.load("./resources/textures/KeyTexture.jpg");
-KeyTexture.wrapS = THREE.RepeatWrapping;
-KeyTexture.wrapT = THREE.RepeatWrapping;
-KeyTexture.repeat.set(1, 1)
+
+var metalFloorTexture = textureLoader.load('./resources/textures/metalTexture.jpeg');
+    metalFloorTexture.wrapS = THREE.RepeatWrapping;
+    metalFloorTexture.wrapT = THREE.RepeatWrapping;
+    metalFloorTexture.repeat.set(50, 50);
+
+var roofTexture = textureLoader.load('./resources/textures/roofTexture.jpeg');
+    roofTexture.wrapS = THREE.RepeatWrapping;
+    roofTexture.wrapT = THREE.RepeatWrapping;
+    roofTexture.repeat.set(30, 30);
+
+var metalTexture = textureLoader.load('./resources/textures/metalTexture.jpg');
+    metalTexture.wrapS = THREE.RepeatWrapping;
+    metalTexture.wrapT = THREE.RepeatWrapping;
+    metalTexture.repeat.set(1, 1);
+
+var metalTexture1 = textureLoader.load('./resources/textures/roofTexture.jpeg');
+    metalTexture1.wrapS = THREE.RepeatWrapping;
+    metalTexture1.wrapT = THREE.RepeatWrapping;
+    metalTexture1.repeat.set(1, 1);
+
+var metalWallTexture = textureLoader.load('./resources/textures/metalWallTexture.jpg');
+    metalWallTexture.wrapS = THREE.RepeatWrapping;
+    metalWallTexture.wrapT = THREE.RepeatWrapping;
+    metalWallTexture.repeat.set(1, 1);
+
+var metalWallTexture1 = textureLoader.load('./resources/textures/metalWallTexture1.jpg');
+    metalWallTexture1.wrapS = THREE.RepeatWrapping;
+    metalWallTexture1.wrapT = THREE.RepeatWrapping;
+    metalWallTexture1.repeat.set(1, 1);
+
+var metalWallTexture2 = textureLoader.load('./resources/textures/metalWallTexture2.jpg');
+    metalWallTexture2.wrapS = THREE.RepeatWrapping;
+    metalWallTexture2.wrapT = THREE.RepeatWrapping;
+    metalWallTexture2.repeat.set(1, 1);
 
 //object interaction
 function getKey() {
@@ -57,18 +86,30 @@ function openDoor() {
 }
 
 //planemeshs
-var meshfloor = new THREE.Mesh(
+var meshFloor = new THREE.Mesh(
 	new THREE.PlaneGeometry(75, 75),
 	new THREE.MeshPhongMaterial(
 		{
 			color: 0xffffff,
             wireframe: false,
-            map: floorTexture,
+            map: metalFloorTexture,
 		}
 	),
 );
-meshfloor.position.y -= 0.5;
-meshfloor.rotation.x -= Math.PI / 2;
+meshFloor.position.y -= 0.5;
+meshFloor.rotation.x -= Math.PI / 2;
+
+var meshRoof = new THREE.Mesh(
+	new THREE.PlaneGeometry(75, 75),
+	new THREE.MeshPhongMaterial(
+		{
+			color: 0xffffff,
+            wireframe: false,
+            map: roofTexture,
+		}
+	),);
+meshRoof.position.y += 7;
+meshRoof.rotation.x += Math.PI / 2;
 
 //constants
 const worldWidth = 256, worldDepth = 256;
@@ -80,12 +121,12 @@ scene.background = new THREE.Color(0xfbfbfb );
 const camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 1000 );
 camera.position.set(0, 3, 12);
 camera.lookAt(0, 0, 0);
-scene.add(meshfloor);
+scene.add(meshFloor);
+scene.add(meshRoof);
 
 //lighting
 var ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
 scene.add(ambientLight);
-
 
 //door model
 var loader = new GLTFLoader();
@@ -93,8 +134,18 @@ loader.load('./resources/models/Door.gltf', function (gltf) {
     gltf.scene.color = ("LightGray");
     gltf.scene.scale.set(3, 2, 2);
     gltf.scene.position.y -= 0.5;
-    gltf.scene.position.z += 15;
+    gltf.scene.position.z += 21;
     gltf.scene.rotation.y -= Math.PI;
+
+    /*
+    var door = gltf.scene;
+    door.traverse((object) => {
+        if (object.isMesh) {
+            object.material.map = roofTexture;
+        }
+    } );
+    */
+
 	scene.add(gltf.scene);
 
 }, undefined, function (error) {
@@ -218,136 +269,151 @@ var meshBasicMaterial = new THREE.MeshBasicMaterial({
     map: wallTexture
 });
 
-var cube0 = new THREE.Mesh(geometry, meshBasicMaterial);
-cube0.position.z += 12;
+var metalMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+   	wireframe: false,
+    map: metalTexture
+});
+
+var metalMaterial1 = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+   	wireframe: false,
+    map: metalTexture1
+});
+
+var metalWallMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+   	wireframe: false,
+    map: metalWallTexture
+});
+
+var metalWallMaterial1 = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+   	wireframe: false,
+    map: metalWallTexture1
+});
+
+var metalWallMaterial2 = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+   	wireframe: false,
+    map: metalWallTexture2
+});
+
+var cube0 = new THREE.Mesh(geometry, metalMaterial1);
+cube0.position.z += 17;
 cube0.position.x += 11;
 cube0.scale.set(2, 1, 2);
 scene.add(cube0);
-var cube1 = new THREE.Mesh(geometry, meshKeyMaterial);
-cube1.position.z += 11.4;
-cube1.position.x -= 12;
-cube1.position.y += 1.5;
-cube1.scale.set(1, 0.001, 0.75);
-scene.add(cube1);
-
 
 var wallgeom = new THREE.BoxGeometry(0.5, 10, 7);
-var wall0 = new THREE.Mesh(wallgeom, meshBasicMaterial);
+var wallgeom1 = new THREE.BoxGeometry(0.5, 12, 7);
+
+var wall0 = new THREE.Mesh(wallgeom1, metalWallMaterial);
 wall0.position.x -= 6;
 wall0.position.y += 3;
-wall0.position.z += 10;
+wall0.position.z += 15;
 wall0.rotation.x += Math.PI / 2;
 scene.add(wall0);
-var wall1 = new THREE.Mesh(wallgeom, meshBasicMaterial);
+var wall1 = new THREE.Mesh(wallgeom1, metalWallMaterial);
 wall1.position.x -= 6;
 wall1.position.y += 3;
-wall1.position.z -= 4;
+wall1.position.z -= 3;
 wall1.rotation.x += Math.PI / 2;
 scene.add(wall1);
-var wall2 = new THREE.Mesh(wallgeom, meshBasicMaterial);
+var wall2 = new THREE.Mesh(wallgeom1, metalWallMaterial);
 wall2.position.x += 6;
 wall2.position.y += 3;
-wall2.position.z += 10;
+wall2.position.z += 15;
 wall2.rotation.x += Math.PI / 2;
 scene.add(wall2);
-var wall3 = new THREE.Mesh(wallgeom, meshBasicMaterial);
+var wall3 = new THREE.Mesh(wallgeom1, metalWallMaterial);
 wall3.position.x += 6;
 wall3.position.y += 3;
-wall3.position.z -= 4;
+wall3.position.z -= 3;
 wall3.rotation.x += Math.PI / 2;
 scene.add(wall3);
-var wall4 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall4.position.x += 12;
+var wall6 = new THREE.Mesh(wallgeom1, metalWallMaterial);
+wall6.position.x += 0;
+wall6.position.y += 3;
+wall6.position.z -= 9;
+wall6.rotation.z += Math.PI / 2;
+wall6.rotation.x += Math.PI / 2;
+scene.add(wall6);
+var wall16 = new THREE.Mesh(wallgeom1, metalWallMaterial);
+wall16.position.x += 0;
+wall16.position.y += 3;
+wall16.position.z += 21;
+wall16.rotation.z += Math.PI / 2;
+wall16.rotation.x += Math.PI / 2;
+scene.add(wall16);
+
+//RIGHT SIDE
+var wall4 = new THREE.Mesh(wallgeom, metalWallMaterial1);
+wall4.position.x += 11;
 wall4.position.y += 3;
-wall4.position.z -= 8;
+wall4.position.z -= 9;
 wall4.rotation.z += Math.PI / 2;
 wall4.rotation.x += Math.PI / 2;
 scene.add(wall4);
-var wall5 = new THREE.Mesh(wallgeom, meshBasicMaterial);
+var wall5 = new THREE.Mesh(wallgeom, metalWallMaterial1);
 wall5.position.x += 16;
 wall5.position.y += 3;
 wall5.position.z -= 4;
 wall5.rotation.x += Math.PI / 2;
 scene.add(wall5);
-var wall6 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall6.position.x += 2;
-wall6.position.y += 3;
-wall6.position.z -= 8;
-wall6.rotation.z += Math.PI / 2;
-wall6.rotation.x += Math.PI / 2;
-scene.add(wall6);
-var wall7 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall7.position.x -= 16;
-wall7.position.y += 3;
-wall7.position.z += 6;
-wall7.rotation.x += Math.PI / 2;
-scene.add(wall7);
-var wall8 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall8.position.x += 12;
-wall8.position.y += 3;
-wall8.position.z += 15;
-wall8.rotation.z += Math.PI / 2;
-wall8.rotation.x += Math.PI / 2;
-scene.add(wall8);
-var wall9 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall9.position.x -= 8;
-wall9.position.y += 3;
-wall9.position.z += 15;
-wall9.rotation.z += Math.PI / 2;
-wall9.rotation.x += Math.PI / 2;
-scene.add(wall9);
-var wall10 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall10.position.x -= 8;
-wall10.position.y += 3;
-wall10.position.z -= 8;
-wall10.rotation.z += Math.PI / 2;
-wall10.rotation.x += Math.PI / 2;
-scene.add(wall10);
-var wall11 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall11.position.x -= 18;
-wall11.position.y += 3;
-wall11.position.z -= 8;
-wall11.rotation.z += Math.PI / 2;
-wall11.rotation.x += Math.PI / 2;
-scene.add(wall11);
-var wall12 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall12.position.x -= 16;
-wall12.position.y += 3;
-wall12.position.z -= 4;
-wall12.rotation.x += Math.PI / 2;
-scene.add(wall12);
-var wall13 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall13.position.x -= 16;
-wall13.position.y += 3;
-wall13.position.z += 16;
-wall13.rotation.x += Math.PI / 2;
-scene.add(wall13);
-var wall14 = new THREE.Mesh(wallgeom, meshBasicMaterial);
+var wall14 = new THREE.Mesh(wallgeom, metalWallMaterial1);
 wall14.position.x += 16;
 wall14.position.y += 3;
 wall14.position.z += 6;
 wall14.rotation.x += Math.PI / 2;
 scene.add(wall14);
-var wall15 = new THREE.Mesh(wallgeom, meshBasicMaterial);
+var wall15 = new THREE.Mesh(wallgeom, metalWallMaterial1);
 wall15.position.x += 16;
 wall15.position.y += 3;
 wall15.position.z += 16;
 wall15.rotation.x += Math.PI / 2;
 scene.add(wall15);
-var wall16 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall16.position.x += 2;
-wall16.position.y += 3;
-wall16.position.z += 15;
-wall16.rotation.z += Math.PI / 2;
-wall16.rotation.x += Math.PI / 2;
-scene.add(wall16);
-var wall17 = new THREE.Mesh(wallgeom, meshBasicMaterial);
-wall17.position.x -= 18;
-wall17.position.y += 3;
-wall17.position.z += 15;
-wall17.rotation.z += Math.PI / 2;
-wall17.rotation.x += Math.PI / 2;
-scene.add(wall17);
+var wall8 = new THREE.Mesh(wallgeom, metalWallMaterial1);
+wall8.position.x += 11;
+wall8.position.y += 3;
+wall8.position.z += 21;
+wall8.rotation.z += Math.PI / 2;
+wall8.rotation.x += Math.PI / 2;
+scene.add(wall8);
+
+//LEFT SIDE
+var wall10 = new THREE.Mesh(wallgeom, metalWallMaterial2);
+wall10.position.x -= 11;
+wall10.position.y += 3;
+wall10.position.z -= 9;
+wall10.rotation.z += Math.PI / 2;
+wall10.rotation.x += Math.PI / 2;
+scene.add(wall10);
+var wall12 = new THREE.Mesh(wallgeom, metalWallMaterial2);
+wall12.position.x -= 16;
+wall12.position.y += 3;
+wall12.position.z -= 4;
+wall12.rotation.x += Math.PI / 2;
+scene.add(wall12);
+var wall7 = new THREE.Mesh(wallgeom, metalWallMaterial2);
+wall7.position.x -= 16;
+wall7.position.y += 3;
+wall7.position.z += 6;
+wall7.rotation.x += Math.PI / 2;
+scene.add(wall7);
+var wall13 = new THREE.Mesh(wallgeom, metalWallMaterial2);
+wall13.position.x -= 16;
+wall13.position.y += 3;
+wall13.position.z += 16;
+wall13.rotation.x += Math.PI / 2;
+scene.add(wall13);
+var wall9 = new THREE.Mesh(wallgeom, metalWallMaterial2);
+wall9.position.x -= 11;
+wall9.position.y += 3;
+wall9.position.z += 21;
+wall9.rotation.z += Math.PI / 2;
+wall9.rotation.x += Math.PI / 2;
+scene.add(wall9);
 
 var rectprism = new THREE.BoxGeometry(8,6,1);
 var bluemat = new THREE.MeshBasicMaterial({
@@ -367,7 +433,7 @@ const redmat = new THREE.MeshBasicMaterial({
     map: earthTexture
 });
 const sphere = new THREE.Mesh( geom, redmat );
-sphere.position.set(11, 3, 12);
+sphere.position.set(11, 3, 17);
 scene.add( sphere );
 
 /*
@@ -441,5 +507,7 @@ function animate() {
 
     renderer.render(scene, camera);
 }
+
+
 
 renderer.render(scene, camera);
