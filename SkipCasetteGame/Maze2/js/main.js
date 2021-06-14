@@ -57,11 +57,71 @@ function init(){
     
         });
 
+
+        //start of maze door lantern
+        loader = new GLTFLoader();
+        loader.load('./model/scene.gltf', function (gltf) {
+        gltf.scene.position.z = -35;
+        gltf.scene.rotation.y += Math.PI/2;
+        gltf.scene.position.x = -10;
+
+        scene.add(gltf.scene);
+    
+        gltf.scene.traverse(function (node) {
+            if (node instanceof THREE.Mesh) {
+                objects.push(node);
+            }
+        });
+    
+        }, undefined, function (error) {
+    
+            console.error(error);
+    
+        });
+
+        //end of maze door lantern
+        loader = new GLTFLoader();
+        loader.load('./model/scene.gltf', function (gltf) {
+        gltf.scene.position.z = 45;
+        gltf.scene.rotation.y += -Math.PI/2;
+        gltf.scene.position.x = 29;
+
+        scene.add(gltf.scene);
+    
+        gltf.scene.traverse(function (node) {
+            if (node instanceof THREE.Mesh) {
+                objects.push(node);
+            }
+        });
+    
+        }, undefined, function (error) {
+    
+            console.error(error);
+    
+        });
+
     scene = new THREE.Scene();
+
+    //black fog
+    var density = 0.1;
+    scene.fog = new THREE.FogExp2(0x000000, density);
     camera = new THREE.PerspectiveCamera(90, (window.innerWidth/window.innerHeight), 0.1, 1000);
 
     camera.position.set(-5, 3, -45);
     camera.lookAt(0, 0, 0);
+
+    //background sound
+    const listener = new THREE.AudioListener();
+    const sound = new THREE.Audio(listener);
+    camera.add(listener)
+    const audioLoader = new THREE.AudioLoader();
+    audioLoader.load( 'resources/Sci-Fi Space Alarm Sound Effect for Games-[AudioTrimmer.com] (1).mp3', function( buffer ) {
+         sound.setBuffer( buffer );
+         sound.setLoop( true );
+         sound.setVolume( 1 );
+         sound.play();
+    });
+
 
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth,window.innerHeight);
@@ -206,7 +266,7 @@ function init(){
 
     );
 
-    ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
     pointLight = new THREE.PointLight(0xffffff, 1, 100,2);
@@ -215,6 +275,20 @@ function init(){
     pointLight.shadow.camera.near = 0.1;
     pointLight.shadow.camera.far = 25;
     scene.add(pointLight);
+
+    var light0 = new THREE.SpotLight( 0xff0000, 1, 20    );
+    light0.position.set( -10, 1, -35 );
+    light0.target.position.set(9, 1, -35);
+    light0.power = 15;
+    scene.add( light0 );
+    scene.add(light0.target);
+
+    var light1 = new THREE.SpotLight( 0x00ff00, 1, 20 );
+    light1.position.set( 29, 1, 45 );
+    light1.target.position.set(-28, 1, 45);
+    light1.power = 20;
+    scene.add( light1 );
+    scene.add(light1.target);
     
     mesh.receiveShadow = true;
     mesh.castShadow = true;
@@ -281,8 +355,8 @@ function init(){
     objects.push( wall2 );
 
     var wall3 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterialOuter);
-    wall3.scale.set(50,10);
-    wall3.position.set(-26.5,2,-50);
+    wall3.scale.set(49,10);
+    wall3.position.set(-26.1,2,-50);
     wall3.castShadow=true;
     wall3.receiveShadow=true;
     scene.add(wall3);
@@ -757,6 +831,19 @@ function animate(){
             velocity.x = -(velocity.x*2);
             velocity.z = -(velocity.z*2);
             velocity.y = 0;
+
+            //collision sound
+            const listener = new THREE.AudioListener();
+            const sound = new THREE.Audio(listener);
+            camera.add(listener)
+            const audioLoader = new THREE.AudioLoader();
+            audioLoader.load( 'resources/WoodCrashesDistant.mp3', function( buffer ) {
+                sound.setBuffer( buffer );
+                sound.setLoop( false );
+                sound.setVolume( 0.1 );
+                sound.play();
+            });
+        
         }
 
         controls.moveRight( - velocity.x * delta );

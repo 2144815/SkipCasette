@@ -60,6 +60,25 @@ scene.background = new THREE.Color(0xfbfbfb );
 const camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 1000 );
 camera.position.set(0, 3, 12);
 camera.lookAt(0, 0, 0);
+
+//black fog
+var density = 0.1;
+scene.fog = new THREE.FogExp2(0xffffff, density);
+
+//background sound
+const listener = new THREE.AudioListener();
+const sound = new THREE.Audio(listener);
+camera.add(listener)
+const audioLoader = new THREE.AudioLoader();
+audioLoader.load( 'resources/Sci-Fi Space Alarm Sound Effect for Games-[AudioTrimmer.com] (1).mp3', function( buffer ) {
+    sound.setBuffer( buffer );
+    sound.setLoop( true );
+    sound.setVolume( 1 );
+    sound.play();
+});
+
+
+
 scene.add(meshfloor);
 
 //lighting
@@ -461,6 +480,18 @@ function animate() {
             velocity.x = -(velocity.x*2);
             velocity.z = -(velocity.z*2);
             velocity.y = 0;
+
+            //collision sound
+            const listener = new THREE.AudioListener();
+            const sound = new THREE.Audio(listener);
+            camera.add(listener)
+            const audioLoader = new THREE.AudioLoader();
+            audioLoader.load( 'resources/WoodCrashesDistant.mp3', function( buffer ) {
+                sound.setBuffer( buffer );
+                sound.setLoop( false );
+                sound.setVolume( 0.1 );
+                sound.play();
+            });
         }
 
         controls.moveRight( - velocity.x * delta );
