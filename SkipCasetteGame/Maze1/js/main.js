@@ -1,98 +1,367 @@
 import * as THREE from 'https://unpkg.com/three@0.125.2/build/three.module.js';
-import {OrbitControls} from 'https://unpkg.com/three@0.125.2/examples/jsm/controls/OrbitControls.js'
 import {PointerLockControls} from 'https://unpkg.com/three@0.125.2/examples/jsm/controls/PointerLockControls.js'
+import { GLTFLoader } from 'https://unpkg.com/three@0.125.2/examples/jsm/loaders/GLTFLoader.js';
 
-var moveForward = false;
-var moveBackward = false;
-var moveLeft = false;
-var moveRight = false;
+//control variables
+{
+    var controls;
+    var moveForward = false;
+    var moveBackward = false;
+    var moveLeft = false;
+    var moveRight = false;
+}
 
-var prevTime = performance.now();
+//texture and model variables
+{
+    var skyTexture;
+    var roofTexture;
+    var floorTexture;
+    var indoorFloorTexture;
+    var wallTexture;
+    var wallTextureMedium;
+    var wallTextureLong;
+    var textureLoader;
+    var loader;
+
+}
+
+//light variables
+{
+    var light0;
+    var light1;
+    var ambientLight;
+}
+
+//world setup variables
+{
+    var renderer;
+    var camera;
+    var scene;
+    var density;
+    var raycaster;
+    var prevTime //stores collidable objects
+}
+
+//fog density
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
+const objects = [];
 
-var renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.BasicShadowMap;
-document.body.appendChild(renderer.domElement);
+function init(){
+    prevTime = performance.now();
 
-var camera = new THREE.PerspectiveCamera(90, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(-5, 5, -70);
-camera.lookAt(-5, 2, 0);
+    renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.BasicShadowMap;
+    document.body.appendChild(renderer.domElement);
 
-var scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(90, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(5, 5, -48);
+    camera.lookAt(-5, 2, 0);
 
-var controls = new PointerLockControls(camera,renderer.domElement);
-const menuPanel = document.getElementById('menuPanel');
-const startButton = document.getElementById('startButton');
-startButton.addEventListener('click', function () {
-   controls.lock();
-    }, false);
+    scene = new THREE.Scene()
 
-    controls.addEventListener('lock', () => menuPanel.style.display = 'none');
-    controls.addEventListener('unlock', () => menuPanel.style.display = 'block');
+    //add black fog
+    density = 0.1;
+    scene.fog = new THREE.FogExp2(0x000000, density);
 
-    scene.add( controls.getObject() );
+    textureLoader = new THREE.TextureLoader()
 
-    const onKeyDown = function ( event ) {
-        switch ( event.code ) {
-            case 'KeyW':
-                moveForward = true;
-                break;
-            case 'KeyA':
-                moveLeft = true;
-                break;
-            case 'KeyS':
-                moveBackward = true;
-                break;
-            case 'KeyD':
-                moveRight = true;
-                break;
-            }
-    };
-    const onKeyUp = function ( event ) {
-        switch ( event.code ) {
-            case 'KeyW':
-                moveForward = false;
-                break;
-            case 'KeyA':
-                moveLeft = false;
-                break;
-            case 'KeyS':
-                moveBackward = false;
-                break;
+    //background sound
+    game_sound( 'resources/Sci-Fi Space Alarm Sound Effect for Games-[AudioTrimmer.com] (1).mp3', 1, true );
 
-            case 'KeyD':
-                moveRight = false;
-                break;
+    raycaster = new THREE.Raycaster( new THREE.Vector3(), new THREE.Vector3( 0, - 1, 0 ), 0, 10 );
+
+    lights();
+
+    load_models();
+    
+    load_textures();
+
+    build_maze();
+
+    game_controls();
+
+    window.addEventListener( 'resize', onWindowResize );
+
+    animate();
+
+}
+function onWindowResize() {
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize( window.innerWidth, window.innerHeight );
+
+}
+
+function animate(){
+    requestAnimationFrame(animate);
+    const time = performance.now();
+    if ( controls.isLocked === true ) {
+
+        raycaster.ray.origin.copy( controls.getObject().position );
+
+        const intersections = raycaster.intersectObjects( objects );
+
+		const onObject = intersections.length > 0;
+
+        const delta = ( time - prevTime ) / 1000;
+
+        velocity.x -= velocity.x * 15.0 * delta;
+		velocity.z -= velocity.z * 15.0 * delta;
+        direction.z = Number( moveForward ) - Number( moveBackward );
+		direction.x = Number( moveRight ) - Number( moveLeft );
+        direction.normalize();
+
+        if ( moveForward || moveBackward ) velocity.z -= direction.z * 400.0 * delta;
+		if ( moveLeft || moveRight ) velocity.x -= direction.x * 400.0 * delta;
+
+        if ( onObject === true ) {
+
+            velocity.x = -(velocity.x*2);
+            velocity.z = -(velocity.z*2);
+            velocity.y = 0;
+            
+            //collision sound
+            game_sound('resources/WoodCrashesDistant.mp3', 0.1, false);
         }
-    };
+
+        controls.moveRight( - velocity.x * delta );
+		controls.moveForward( - velocity.z * delta );
+    
+    }
+    prevTime = time;
+
+    renderer.render(scene, camera);
+}
+
+function game_controls(){
+    controls = new PointerLockControls(camera,renderer.domElement);
+    const menuPanel = document.getElementById('menuPanel');
+    const startButton = document.getElementById('startButton');
+    startButton.addEventListener('click', function () {
+    controls.lock();
+        }, false);
+
+        controls.addEventListener('lock', () => menuPanel.style.display = 'none');
+        controls.addEventListener('unlock', () => menuPanel.style.display = 'block');
+
+        scene.add( controls.getObject() );
+
+        const onKeyDown = function ( event ) {
+            switch ( event.code ) {
+                case 'KeyW':
+                    moveForward = true;
+                    break;
+                case 'KeyA':
+                    moveLeft = true;
+                    break;
+                case 'KeyS':
+                    moveBackward = true;
+                    break;
+                case 'KeyD':
+                    moveRight = true;
+                    break;
+                }
+        };
+        const onKeyUp = function ( event ) {
+            switch ( event.code ) {
+                case 'KeyW':
+                    moveForward = false;
+                    break;
+                case 'KeyA':
+                    moveLeft = false;
+                    break;
+                case 'KeyS':
+                    moveBackward = false;
+                    break;
+
+                case 'KeyD':
+                    moveRight = false;
+                    break;
+            }
+        };
 
     document.addEventListener( 'keydown', onKeyDown );
     document.addEventListener( 'keyup', onKeyUp );
+}
 
+function lights(){
+    ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
 
-var textureLoader = new THREE.TextureLoader()
+    light0 = new THREE.SpotLight( 0xff0000, 1, 20 );
+    light0.position.set( -8, 1, -45 );
+    light0.target.position.set(7, 1, -45);
+    light0.power = 20;
+    scene.add( light0 );
+    scene.add(light0.target);
 
-var ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-scene.add(ambientLight);
+    light1 = new THREE.SpotLight( 0x00ff00, 1, 20 );
+    light1.position.set( 19, 1, 45 );
+    light1.target.position.set(-18, 1, 45);
+    light1.power = 20;
+    scene.add( light1 );
+    scene.add(light1.target);
+}
 
-const directionalLight = new THREE.DirectionalLight( 0xffffff, 1 );
-directionalLight.castShadow = true;
-directionalLight.position.set(10, 1, 10);
-scene.add( directionalLight );
+function load_models(){
 
-function init(){
+    //start of maze door
+    loader = new GLTFLoader();
+    loader.load('./resources/Door.gltf', function (gltf) {
+    gltf.scene.scale.set(5, 3, 4);
+    gltf.scene.position.z = -50;
+    gltf.scene.position.x += 5;
+	scene.add(gltf.scene);
+
+    gltf.scene.traverse(function (node) {
+        if (node instanceof THREE.Mesh) {
+            objects.push(node);
+        }
+    });
+
+    }, undefined, function (error) {
+
+	    console.error(error);
+
+    });
+
+    //end of maze door
+    loader.load('./resources/Door.gltf', function (gltf) {
+        gltf.scene.scale.set(5, 3, 4);
+        gltf.scene.position.z = 50;
+        gltf.scene.position.x = 10;
+        gltf.scene.rotation.y -= Math.PI;
+        scene.add(gltf.scene);
     
-    var floorTexture = textureLoader.load("./resources/grass5.jpg");
+        gltf.scene.traverse(function (node) {
+            if (node instanceof THREE.Mesh) {
+                objects.push(node);
+            }
+        });
+    
+        }, undefined, function (error) {
+    
+            console.error(error);
+    
+        });
+
+        //start of maze lantern
+        loader = new GLTFLoader();
+        loader.load('./model/scene.gltf', function (gltf) {
+        gltf.scene.position.z = -45;
+        gltf.scene.rotation.y += Math.PI/2;
+        gltf.scene.position.x = -8;
+
+        scene.add(gltf.scene);
+    
+        gltf.scene.traverse(function (node) {
+            if (node instanceof THREE.Mesh) {
+                objects.push(node);
+            }
+        });
+    
+        }, undefined, function (error) {
+    
+            console.error(error);
+    
+        });
+
+        //end of maze lantern
+        loader = new GLTFLoader();
+        loader.load('./model/scene.gltf', function (gltf) {
+        gltf.scene.position.z = 45;
+        gltf.scene.rotation.y += -Math.PI/2;
+        gltf.scene.position.x = 19;
+
+        scene.add(gltf.scene);
+    
+        gltf.scene.traverse(function (node) {
+            if (node instanceof THREE.Mesh) {
+                objects.push(node);
+            }
+        });
+    
+        }, undefined, function (error) {
+    
+            console.error(error);
+    
+        });
+}
+
+function load_textures(){
+
+    //outdoor ground texture
+    floorTexture = textureLoader.load("./resources/grass5.jpg");
     floorTexture.wrapS = THREE.RepeatWrapping;
     floorTexture.wrapT = THREE.RepeatWrapping;
-    floorTexture.repeat.set(20,20); 
+    floorTexture.repeat.set(20,20);
+
+    //ground texture
+    indoorFloorTexture = textureLoader.load("./resources/floor0.jpg");
+    indoorFloorTexture.wrapS = THREE.RepeatWrapping;
+    indoorFloorTexture.wrapT = THREE.RepeatWrapping;
+    indoorFloorTexture.repeat.set(20,20);
+
+    //dome like sky texture
+    skyTexture = textureLoader.load("./resources/Skydome.png");
+    skyTexture.wrapS = THREE.RepeatWrapping;
+    skyTexture.wrapT = THREE.RepeatWrapping;
+    skyTexture.repeat.set(1 ,1);
+
+    //indoor roof texture
+    roofTexture = textureLoader.load("./resources/roof_asbestos.png");
+    roofTexture.wrapS = THREE.RepeatWrapping;
+    roofTexture.wrapT = THREE.RepeatWrapping;
+    roofTexture.repeat.set(25,25);
+
+    //for small lenght walls
+    wallTexture = textureLoader.load("./resources/wall3.jpg");
+    wallTexture.wrapS = THREE.ClampToEdgeMapping;
+    wallTexture.wrapT = THREE.ClampToEdgeMapping;
+    wallTexture.repeat.set(2,1);
     
+    //for medium length walls
+    wallTextureMedium = textureLoader.load("./resources/wall3.jpg");
+    wallTextureMedium.wrapS = THREE.ClampToEdgeMapping;
+    wallTextureMedium.wrapT = THREE.ClampToEdgeMapping;
+    wallTextureMedium.repeat.set(5,1);
+    
+    //for long length walls
+    wallTextureLong = textureLoader.load("./resources/wall3.jpg");
+    wallTextureLong.wrapS = THREE.ClampToEdgeMapping;
+    wallTextureLong.wrapT = THREE.ClampToEdgeMapping;
+    wallTextureLong.repeat.set(15,1);
+}
+
+//play sound in the game
+//for collision sound, set repeat = false
+//for background sound, set repeat = true
+function game_sound(audio_file, volume, repeat_sound){
+    const listener = new THREE.AudioListener();
+    const sound = new THREE.Audio(listener);
+    camera.add(listener)
+    const audioLoader = new THREE.AudioLoader();
+    audioLoader.load( audio_file, function( buffer ) {
+        sound.setBuffer( buffer );
+        sound.setLoop( repeat_sound );
+        sound.setVolume( volume );
+        sound.play();
+    });
+}
+
+
+//build maze
+function build_maze(){
+
+    //outdoor floor
     var meshFloor = new THREE.Mesh(
         new THREE.CircleGeometry(100, 100),
-        new THREE.MeshPhongMaterial(
+        new THREE.MeshBasicMaterial(
             {
                 wireframe: false,
                 map: floorTexture, 
@@ -104,11 +373,7 @@ function init(){
     meshFloor.receiveShadow = true;
     scene.add(meshFloor);
 
-    var indoorFloorTexture = textureLoader.load("./resources/floor0.jpg");
-    indoorFloorTexture.wrapS = THREE.RepeatWrapping;
-    indoorFloorTexture.wrapT = THREE.RepeatWrapping;
-    indoorFloorTexture.repeat.set(20,20);
-
+    //indoor floor
     var meshIndoorFloor = new THREE.Mesh(
         new THREE.PlaneGeometry(100, 100),
         new THREE.MeshPhongMaterial(
@@ -125,11 +390,7 @@ function init(){
     meshIndoorFloor.receiveShadow = true;
     scene.add(meshIndoorFloor);
 
-    var roofTexture = textureLoader.load("./resources/roof_asbestos.png");
-    roofTexture.wrapS = THREE.RepeatWrapping;
-    roofTexture.wrapT = THREE.RepeatWrapping;
-    roofTexture.repeat.set(25,25);
-
+    //indoor roof
     var meshRoof = new THREE.Mesh(
         new THREE.PlaneGeometry(101, 101),
         new THREE.MeshPhongMaterial(
@@ -145,11 +406,7 @@ function init(){
     meshRoof.position.set(0, 10.01, 0);
     scene.add(meshRoof);
     
-    var skyTexture = textureLoader.load("./resources/Skydome.png");
-    skyTexture.wrapS = THREE.RepeatWrapping;
-    skyTexture.wrapT = THREE.RepeatWrapping;
-    skyTexture.repeat.set(1 ,1);
-
+    //world sky.
     var sky = new THREE.Mesh(
         new THREE.SphereGeometry(100, 32, 32, 0, 2*Math.PI, 0, Math.PI/2),
         new THREE.MeshPhongMaterial(
@@ -163,1090 +420,1104 @@ function init(){
 
     );
     scene.add(sky);
+
+    //maze
+    //start with leftmost wall
+    //then build it from top to bottom (row by row)
+    //build each row from left to right
+    var wall0 = new THREE.Mesh(
+        new THREE.BoxGeometry(1,1,1),
+        new THREE.MeshPhongMaterial(
+            {
+                wireframe: false,
+                side: THREE.DoubleSide,
+                map:wallTextureLong,
+            }
+        ),
+    );
+    wall0.castShadow = true;
+    wall0.receiveShadow = true;
+
+    wall0.scale.set(100, 10);
+    wall0.position.set(50, 5, 0);
+    wall0.rotation.y += Math.PI/2
+    scene.add(wall0);
+    objects.push( wall0 );
     
-
-    
-    
-
-    //MAZE 
-    //Built side walls first then from top to bottom
-    
-    var crateTexture = textureLoader.load("./resources/wall3.jpg");
-    crateTexture.wrapS = THREE.RepeatWrapping;
-    crateTexture.wrapT = THREE.RepeatWrapping;
-    crateTexture.repeat.set(1,1);
-
-    var crate0 = new THREE.Mesh(
+    var wall1 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 wireframe: false,
                 side: THREE.DoubleSide,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate0.castShadow = true;
-    crate0.receiveShadow = true;
+    wall1.castShadow = true;
+    wall1.receiveShadow = true;
 
-    crate0.scale.set(100, 10);
-    crate0.position.set(50, 5, 0);
-    crate0.rotation.y += Math.PI/2
-    scene.add(crate0);
-    
-    var crate1 = new THREE.Mesh(
+    wall1.position.set(30, 5, 50);
+    wall1.scale.set(40, 10);
+
+    scene.add(wall1);
+    objects.push( wall1 );
+
+    var wall2 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 wireframe: false,
                 side: THREE.DoubleSide,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate1.castShadow = true;
-    crate1.receiveShadow = true;
+    wall2.castShadow = true;
+    wall2.receiveShadow = true;
 
-    crate1.position.set(35, 5, 50);
-    crate1.scale.set(30, 10);
+    wall2.position.set(-20, 5, 50);
+    wall2.scale.set(60, 10);
 
-    scene.add(crate1);
+    scene.add(wall2);
+    objects.push( wall2 );
 
-    var crate2 = new THREE.Mesh(
+    var wall3 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 wireframe: false,
                 side: THREE.DoubleSide,
-                map:crateTexture,
+                map:wallTextureLong,
             }
         ),
     );
-    crate2.castShadow = true;
-    crate2.receiveShadow = true;
 
-    crate2.position.set(-20, 5, 50);
-    crate2.scale.set(60, 10);
+    wall3.castShadow = true;
+    wall3.receiveShadow = true;
 
-    scene.add(crate2);
+    wall3.scale.set(100, 10);
+    wall3.position.set(-50, 5, 0);
+    wall3.rotation.y += Math.PI/2
 
-    var crate3 = new THREE.Mesh(
+    scene.add(wall3);
+    objects.push( wall3 );
+
+    var wall4 = new THREE.Mesh(
+        new THREE.BoxGeometry(1,1,1),
+        new THREE.MeshPhongMaterial(
+            {
+                wireframe: false,
+                map:wallTexture,
+                side: THREE.DoubleSide,
+            }
+        ),
+    );
+    wall4.castShadow = true;
+    wall4.receiveShadow = true;
+
+    wall4.position.set(20, 5, 45);
+    wall4.rotation.y += Math.PI/2
+    wall4.scale.set(10, 10);
+
+    scene.add(wall4);
+    objects.push( wall4 );
+
+    var wall5 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 wireframe: false,
                 side: THREE.DoubleSide,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
+    wall5.castShadow = true;
+    wall5.receiveShadow = true;
 
-    crate3.castShadow = true;
-    crate3.receiveShadow = true;
+    wall5.position.set(-30, 5, 45);
+    wall5.rotation.y = Math.PI/2
+    wall5.scale.set(10, 10);
 
-    crate3.scale.set(100, 10);
-    crate3.position.set(-50, 5, 0);
-    crate3.rotation.y += Math.PI/2
+    scene.add(wall5);
+    objects.push( wall5 );
 
-    scene.add(crate3);
-
-    var crate4 = new THREE.Mesh(
-        new THREE.BoxGeometry(1,1,1),
-        new THREE.MeshPhongMaterial(
-            {
-                wireframe: false,
-                map:crateTexture,
-                side: THREE.DoubleSide,
-            }
-        ),
-    );
-    crate4.castShadow = true;
-    crate4.receiveShadow = true;
-
-    crate4.position.set(20, 5, 45);
-    crate4.rotation.y += Math.PI/2
-    crate4.scale.set(10, 10);
-
-    scene.add(crate4);
-
-    var crate5 = new THREE.Mesh(
+    var wall6 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 wireframe: false,
                 side: THREE.DoubleSide,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate5.castShadow = true;
-    crate5.receiveShadow = true;
+    wall6.castShadow = true;
+    wall6.receiveShadow = true;
 
-    crate5.position.set(-30, 5, 45);
-    crate5.rotation.y = Math.PI/2
-    crate5.scale.set(10, 10);
+    wall6.position.set(40, 5, 40);
+    wall6.scale.set(20, 10);
 
-    scene.add(crate5);
+    scene.add(wall6);
+    objects.push( wall6 );
 
-    var crate6 = new THREE.Mesh(
-        new THREE.BoxGeometry(1,1,1),
-        new THREE.MeshPhongMaterial(
-            {
-                wireframe: false,
-                side: THREE.DoubleSide,
-                map:crateTexture,
-            }
-        ),
-    );
-    crate6.castShadow = true;
-    crate6.receiveShadow = true;
-
-    crate6.position.set(40, 5, 40);
-    crate6.scale.set(20, 10);
-
-    scene.add(crate6);
-
-    var crate7 = new THREE.Mesh(
+    var wall7 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate7.castShadow = true;
-    crate7.receiveShadow = true;
+    wall7.castShadow = true;
+    wall7.receiveShadow = true;
 
-    crate7.position.set(5, 5, 40);
-    crate7.scale.set(10, 10);
+    wall7.position.set(5, 5, 40);
+    wall7.scale.set(10, 10);
 
-    scene.add(crate7);
+    scene.add(wall7);
+    objects.push( wall7 );
 
-    var crate8 = new THREE.Mesh(
+    var wall8 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate8.castShadow = true;
-    crate8.receiveShadow = true;
+    wall8.castShadow = true;
+    wall8.receiveShadow = true;
 
-    crate8.position.set(-25, 5, 40);
-    crate8.scale.set(10, 10);
+    wall8.position.set(-25, 5, 40);
+    wall8.scale.set(10, 10);
 
-    scene.add(crate8);
+    scene.add(wall8);
+    objects.push( wall8 );
 
-    var crate9 = new THREE.Mesh(
+    var wall9 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate9.castShadow = true;
-    crate9.receiveShadow = true;
+    wall9.castShadow = true;
+    wall9.receiveShadow = true;
 
-    crate9.position.set(30, 5, 35);
-    crate9.rotation.y = Math.PI/2
-    crate9.scale.set(10, 10);
+    wall9.position.set(30, 5, 35);
+    wall9.rotation.y = Math.PI/2
+    wall9.scale.set(10, 10);
 
-    scene.add(crate9);
+    scene.add(wall9);
+    objects.push( wall9 );
 
-    var crate10 = new THREE.Mesh(
+    var wall10 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate10.castShadow = true;
-    crate10.receiveShadow = true;
+    wall10.castShadow = true;
+    wall10.receiveShadow = true;
 
-    crate10.position.set(10, 5, 30);
-    crate10.rotation.y = Math.PI/2
-    crate10.scale.set(20, 10);
+    wall10.position.set(10, 5, 30);
+    wall10.rotation.y = Math.PI/2
+    wall10.scale.set(20, 10);
 
-    scene.add(crate10);
+    scene.add(wall10);
+    objects.push( wall10 );
 
-    var crate11 = new THREE.Mesh(
+    var wall11 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate11.castShadow = true;
-    crate11.receiveShadow = true;
+    wall11.castShadow = true;
+    wall11.receiveShadow = true;
 
-    crate11.position.set(-10, 5, 35);
-    crate11.rotation.y = Math.PI/2
-    crate11.scale.set(10, 10);
+    wall11.position.set(-10, 5, 35);
+    wall11.rotation.y = Math.PI/2
+    wall11.scale.set(10, 10);
 
-    scene.add(crate11);
+    scene.add(wall11);
+    objects.push( wall11 );
 
-    var crate12 = new THREE.Mesh(
+    var wall12 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate12.castShadow = true;
-    crate12.receiveShadow = true;
+    wall12.castShadow = true;
+    wall12.receiveShadow = true;
 
-    crate12.position.set(-40, 5, 35);
-    crate12.rotation.y = Math.PI/2
-    crate12.scale.set(10, 10);
+    wall12.position.set(-40, 5, 35);
+    wall12.rotation.y = Math.PI/2
+    wall12.scale.set(10, 10);
 
-    scene.add(crate12);
+    scene.add(wall12);
+    objects.push( wall12 );
 
-    var crate13 = new THREE.Mesh(
+    var wall13 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate13.castShadow = true;
-    crate12.receiveShadow = true;
+    wall13.castShadow = true;
+    wall12.receiveShadow = true;
 
-    crate13.position.set(20, 5, 30);
-    crate13.scale.set(20, 10);
+    wall13.position.set(20, 5, 30);
+    wall13.scale.set(20, 10);
 
-    scene.add(crate13);
+    scene.add(wall13);
+    objects.push( wall13 );
 
-    var crate14 = new THREE.Mesh(
+    var wall14 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate14.castShadow = true;
-    crate14.receiveShadow = true;
+    wall14.castShadow = true;
+    wall14.receiveShadow = true;
 
-    crate14.position.set(-25, 5, 30);
-    crate14.scale.set(30, 10);
+    wall14.position.set(-25, 5, 30);
+    wall14.scale.set(30, 10);
 
-    scene.add(crate14);
+    scene.add(wall14);
+    objects.push( wall14 );
 
-    var crate15 = new THREE.Mesh(
+    var wall15 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate15.castShadow = true;
-    crate15.receiveShadow = true;
+    wall15.castShadow = true;
+    wall15.receiveShadow = true;
 
-    crate15.position.set(40, 5, 25);
-    crate15.rotation.y = Math.PI/2;
-    crate15.scale.set(10, 10);
+    wall15.position.set(40, 5, 25);
+    wall15.rotation.y = Math.PI/2;
+    wall15.scale.set(10, 10);
 
-    scene.add(crate15);
+    scene.add(wall15);
+    objects.push( wall15 );
 
-    var crate16 = new THREE.Mesh(
+    var wall16 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate16.castShadow = true;
-    crate12.receiveShadow = true;
+    wall16.castShadow = true;
+    wall12.receiveShadow = true;
 
-    crate16.position.set(0, 5, 25);
-    crate16.rotation.y = Math.PI/2;
-    crate16.scale.set(10, 10);
+    wall16.position.set(0, 5, 25);
+    wall16.rotation.y = Math.PI/2;
+    wall16.scale.set(10, 10);
 
-    scene.add(crate16);
+    scene.add(wall16);
+    objects.push( wall16 );
 
-    var crate17 = new THREE.Mesh(
+    var wall17 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate17.castShadow = true;
-    crate17.receiveShadow = true;
+    wall17.castShadow = true;
+    wall17.receiveShadow = true;
 
-    crate17.position.set(-30, 5, 20);
-    crate17.rotation.y = Math.PI/2;
-    crate17.scale.set(20, 10);
+    wall17.position.set(-30, 5, 20);
+    wall17.rotation.y = Math.PI/2;
+    wall17.scale.set(20, 10);
 
-    scene.add(crate17);
+    scene.add(wall17);
+    objects.push( wall17 );
 
-    var crate18 = new THREE.Mesh(
+    var wall18 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate18.castShadow = true;
-    crate18.receiveShadow = true;
+    wall18.castShadow = true;
+    wall18.receiveShadow = true;
 
-    crate18.position.set(30, 5, 20);
-    crate18.scale.set(20, 10);
+    wall18.position.set(30, 5, 20);
+    wall18.scale.set(20, 10);
 
-    scene.add(crate18);
+    scene.add(wall18);
+    objects.push( wall18 );
 
-    var crate19 = new THREE.Mesh(
+    var wall19 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate19.castShadow = true;
-    crate19.receiveShadow = true;
+    wall19.castShadow = true;
+    wall19.receiveShadow = true;
 
-    crate19.position.set(-10, 5, 20);
-    crate19.scale.set(40, 10);
+    wall19.position.set(-10, 5, 20);
+    wall19.scale.set(40, 10);
 
-    scene.add(crate19);
+    scene.add(wall19);
+    objects.push( wall19 );
 
-    var crate20 = new THREE.Mesh(
+    var wall20 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate20.castShadow = true;
-    crate20.receiveShadow = true;
+    wall20.castShadow = true;
+    wall20.receiveShadow = true;
 
-    crate20.position.set(-45, 5, 20);
-    crate20.scale.set(10, 10);
+    wall20.position.set(-45, 5, 20);
+    wall20.scale.set(10, 10);
 
-    scene.add(crate20);
+    scene.add(wall20);
+    objects.push( wall20 );
 
-    var crate21 = new THREE.Mesh(
+    var wall21 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate21.castShadow = true;
-    crate21.receiveShadow = true;
+    wall21.castShadow = true;
+    wall21.receiveShadow = true;
 
-    crate21.position.set(30, 5, 10);
-    crate21.rotation.y = Math.PI/2;
-    crate21.scale.set(20, 10);
+    wall21.position.set(30, 5, 10);
+    wall21.rotation.y = Math.PI/2;
+    wall21.scale.set(20, 10);
 
-    scene.add(crate21);
+    scene.add(wall21);
+    objects.push( wall21 );
 
-    var crate22 = new THREE.Mesh(
+    var wall22 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate22.castShadow = true;
-    crate22.receiveShadow = true;
+    wall22.castShadow = true;
+    wall22.receiveShadow = true;
 
-    crate22.position.set(-10, 5, 15);
-    crate22.rotation.y = Math.PI/2;
-    crate22.scale.set(10, 10);
+    wall22.position.set(-10, 5, 15);
+    wall22.rotation.y = Math.PI/2;
+    wall22.scale.set(10, 10);
 
-    scene.add(crate22);
+    scene.add(wall22);
+    objects.push( wall22 );
 
-    var crate23 = new THREE.Mesh(
+    var wall23 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate23.castShadow = true;
-    crate23.receiveShadow = true;
+    wall23.castShadow = true;
+    wall23.receiveShadow = true;
 
-    crate23.position.set(45, 5, 10);
-    crate23.scale.set(10, 10);
+    wall23.position.set(45, 5, 10);
+    wall23.scale.set(10, 10);
 
-    scene.add(crate23);
+    scene.add(wall23);
+    objects.push( wall23 );
 
-    var crate24 = new THREE.Mesh(
+    var wall24 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate24.castShadow = true;
-    crate24.receiveShadow = true;
+    wall24.castShadow = true;
+    wall24.receiveShadow = true;
 
-    crate24.position.set(15, 5, 10);
-    crate24.scale.set(30, 10);
+    wall24.position.set(15, 5, 10);
+    wall24.scale.set(30, 10);
 
-    scene.add(crate24);
+    scene.add(wall24);
+    objects.push( wall24 );
 
-    var crate25 = new THREE.Mesh(
+    var wall25 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate25.castShadow = true;
-    crate25.receiveShadow = true;
+    wall25.castShadow = true;
+    wall25.receiveShadow = true;
 
-    crate25.position.set(-35, 5, 10);
-    crate25.scale.set(10, 10);
+    wall25.position.set(-35, 5, 10);
+    wall25.scale.set(10, 10);
 
-    scene.add(crate25);
+    scene.add(wall25);
+    objects.push( wall25 );
 
-    var crate26 = new THREE.Mesh(
+    var wall26 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate26.castShadow = true;
-    crate26.receiveShadow = true;
+    wall26.castShadow = true;
+    wall26.receiveShadow = true;
 
-    crate26.position.set(10, 5, 5);
-    crate26.rotation.y = Math.PI/2;
-    crate26.scale.set(10, 10);
+    wall26.position.set(10, 5, 5);
+    wall26.rotation.y = Math.PI/2;
+    wall26.scale.set(10, 10);
 
-    scene.add(crate26);
+    scene.add(wall26);
+    objects.push( wall26 );
 
-    var crate27 = new THREE.Mesh(
+    var wall27 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate27.castShadow = true;
-    crate27.receiveShadow = true;
+    wall27.castShadow = true;
+    wall27.receiveShadow = true;
 
-    crate27.position.set(-20, 5, 5);
-    crate27.rotation.y = Math.PI/2;
-    crate27.scale.set(10, 10);
+    wall27.position.set(-20, 5, 5);
+    wall27.rotation.y = Math.PI/2;
+    wall27.scale.set(10, 10);
 
-    scene.add(crate27);
+    scene.add(wall27);
+    objects.push( wall27 );
 
-    var crate28 = new THREE.Mesh(
+    var wall28 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate28.castShadow = true;
-    crate28.receiveShadow = true;
+    wall28.castShadow = true;
+    wall28.receiveShadow = true;
 
-    crate28.position.set(35, 5, 0);
-    crate28.scale.set(10, 10);
+    wall28.position.set(35, 5, 0);
+    wall28.scale.set(10, 10);
 
-    scene.add(crate28);
+    scene.add(wall28);
+    objects.push( wall28 );
 
-    var crate29 = new THREE.Mesh(
+    var wall29 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate29.castShadow = true;
-    crate29.receiveShadow = true;
+    wall29.castShadow = true;
+    wall29.receiveShadow = true;
 
-    crate29.position.set(15, 5, 0);
-    crate29.scale.set(10, 10);
+    wall29.position.set(15, 5, 0);
+    wall29.scale.set(10, 10);
 
-    scene.add(crate29);
+    scene.add(wall29);
+    objects.push( wall29 );
 
-    var crate30 = new THREE.Mesh(
+    var wall30 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate30.castShadow = true;
-    crate30.receiveShadow = true;
+    wall30.castShadow = true;
+    wall30.receiveShadow = true;
 
-    crate30.position.set(-25, 5, 0);
-    crate30.scale.set(50, 10);
+    wall30.position.set(-25, 5, 0);
+    wall30.scale.set(50, 10);
 
-    scene.add(crate30);
+    scene.add(wall30);
+    objects.push( wall30 );
 
-    var crate31 = new THREE.Mesh(
+    var wall31 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate31.castShadow = true;
-    crate31.receiveShadow = true;
+    wall31.castShadow = true;
+    wall31.receiveShadow = true;
 
-    crate31.position.set(40, 5, -5);
-    crate31.rotation.y = Math.PI/2;
-    crate31.scale.set(10, 10);
+    wall31.position.set(40, 5, -5);
+    wall31.rotation.y = Math.PI/2;
+    wall31.scale.set(10, 10);
 
-    scene.add(crate31);
+    scene.add(wall31);
+    objects.push( wall31 );
 
-    var crate32 = new THREE.Mesh(
+    var wall32 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate32.castShadow = true;
-    crate32.receiveShadow = true;
+    wall32.castShadow = true;
+    wall32.receiveShadow = true;
 
-    crate32.position.set(0, 5, -5);
-    crate32.rotation.y = Math.PI/2;
-    crate32.scale.set(10, 10);
+    wall32.position.set(0, 5, -5);
+    wall32.rotation.y = Math.PI/2;
+    wall32.scale.set(10, 10);
 
-    scene.add(crate32);
+    scene.add(wall32);
+    objects.push( wall32 );
 
-    var crate33 = new THREE.Mesh(
+    var wall33 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate33.castShadow = true;
-    crate33.receiveShadow = true;
+    wall33.castShadow = true;
+    wall33.receiveShadow = true;
 
-    crate33.position.set(-30, 5, -5);
-    crate33.rotation.y = Math.PI/2;
-    crate33.scale.set(10, 10);
+    wall33.position.set(-30, 5, -5);
+    wall33.rotation.y = Math.PI/2;
+    wall33.scale.set(10, 10);
 
-    scene.add(crate33);
+    scene.add(wall33);
+    objects.push( wall33 );
 
-    var crate34 = new THREE.Mesh(
+    var wall34 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate34.castShadow = true;
-    crate34.receiveShadow = true;
+    wall34.castShadow = true;
+    wall34.receiveShadow = true;
 
-    crate34.position.set(30, 5, -10);
-    crate34.scale.set(20, 10);
+    wall34.position.set(30, 5, -10);
+    wall34.scale.set(20, 10);
 
-    scene.add(crate34);
+    scene.add(wall34);
+    objects.push( wall34 );
 
-    var crate35 = new THREE.Mesh(
+    var wall35 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate35.castShadow = true;
-    crate35.receiveShadow = true;
+    wall35.castShadow = true;
+    wall35.receiveShadow = true;
 
-    crate35.position.set(-5, 5, -10);
-    crate35.scale.set(30, 10);
+    wall35.position.set(-5, 5, -10);
+    wall35.scale.set(30, 10);
 
-    scene.add(crate35);
+    scene.add(wall35);
+    objects.push( wall35 );
 
-    var crate36 = new THREE.Mesh(
+    var wall36 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate36.castShadow = true;
-    crate36.receiveShadow = true;
+    wall36.castShadow = true;
+    wall36.receiveShadow = true;
 
-    crate36.position.set(20, 5, -25);
-    crate36.rotation.y = Math.PI/2;
-    crate36.scale.set(30, 10);
+    wall36.position.set(20, 5, -25);
+    wall36.rotation.y = Math.PI/2;
+    wall36.scale.set(30, 10);
 
-    scene.add(crate36);
+    scene.add(wall36);
+    objects.push( wall36 );
 
-    var crate37 = new THREE.Mesh(
+    var wall37 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate37.castShadow = true;
-    crate37.receiveShadow = true;
+    wall37.castShadow = true;
+    wall37.receiveShadow = true;
 
-    crate37.position.set(-10, 5, -20);
-    crate37.rotation.y = Math.PI/2;
-    crate37.scale.set(20, 10);
+    wall37.position.set(-10, 5, -20);
+    wall37.rotation.y = Math.PI/2;
+    wall37.scale.set(20, 10);
 
-    scene.add(crate37);
+    scene.add(wall37);
+    objects.push( wall37 );
 
-    var crate38 = new THREE.Mesh(
+    var wall38 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate38.castShadow = true;
-    crate38.receiveShadow = true;
+    wall38.castShadow = true;
+    wall38.receiveShadow = true;
 
-    crate38.position.set(-40, 5, -25);
-    crate38.rotation.y = Math.PI/2;
-    crate38.scale.set(30, 10);
+    wall38.position.set(-40, 5, -25);
+    wall38.rotation.y = Math.PI/2;
+    wall38.scale.set(30, 10);
 
-    scene.add(crate38);
+    scene.add(wall38);
+    objects.push( wall38 );
 
-    var crate39 = new THREE.Mesh(
+    var wall39 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate39.castShadow = true;
-    crate39.receiveShadow = true;
+    wall39.castShadow = true;
+    wall39.receiveShadow = true;
 
-    crate39.position.set(45, 5, -20);
-    crate39.scale.set(10, 10);
+    wall39.position.set(45, 5, -20);
+    wall39.scale.set(10, 10);
 
-    scene.add(crate39);
+    scene.add(wall39);
+    objects.push( wall39 );
 
-    var crate40 = new THREE.Mesh(
+    var wall40 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate40.castShadow = true;
-    crate40.receiveShadow = true;
+    wall40.castShadow = true;
+    wall40.receiveShadow = true;
 
-    crate40.position.set(10, 5, -20);
-    crate40.scale.set(20, 10);
+    wall40.position.set(10, 5, -20);
+    wall40.scale.set(20, 10);
 
-    scene.add(crate40);
+    scene.add(wall40);
+    objects.push( wall40 );
 
-    var crate41 = new THREE.Mesh(
+    var wall41 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate41.castShadow = true;
-    crate41.receiveShadow = true;
+    wall41.castShadow = true;
+    wall41.receiveShadow = true;
 
-    crate41.position.set(-30, 5, -20);
-    crate41.scale.set(20, 10);
+    wall41.position.set(-30, 5, -20);
+    wall41.scale.set(20, 10);
 
-    scene.add(crate41);
+    scene.add(wall41);
+    objects.push( wall41 );
 
-    var crate42 = new THREE.Mesh(
+    var wall42 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate42.castShadow = true;
-    crate42.receiveShadow = true;
+    wall42.castShadow = true;
+    wall42.receiveShadow = true;
 
-    crate42.position.set(30, 5, -25);
-    crate42.rotation.y = Math.PI/2
-    crate42.scale.set(10, 10);
+    wall42.position.set(30, 5, -25);
+    wall42.rotation.y = Math.PI/2
+    wall42.scale.set(10, 10);
 
-    scene.add(crate42);
+    scene.add(wall42);
+    objects.push( wall42 );
 
-    var crate43 = new THREE.Mesh(
+    var wall43 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate43.castShadow = true;
-    crate43.receiveShadow = true;
+    wall43.castShadow = true;
+    wall43.receiveShadow = true;
 
-    crate43.position.set(0, 5, -30);
-    crate43.rotation.y = Math.PI/2;
-    crate43.scale.set(20, 10);
+    wall43.position.set(0, 5, -30);
+    wall43.rotation.y = Math.PI/2;
+    wall43.scale.set(20, 10);
 
-    scene.add(crate43);
+    scene.add(wall43);
+    objects.push( wall43 );
 
 
-    var crate44 = new THREE.Mesh(
+    var wall44 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate44.castShadow = true;
-    crate44.receiveShadow = true;
+    wall44.castShadow = true;
+    wall44.receiveShadow = true;
 
-    crate44.position.set(35, 5, -30);
-    crate44.scale.set(10, 10);
+    wall44.position.set(35, 5, -30);
+    wall44.scale.set(10, 10);
 
-    scene.add(crate44);
+    scene.add(wall44);
+    objects.push( wall44 );
 
-    var crate45 = new THREE.Mesh(
+    var wall45 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate45.castShadow = true;
-    crate45.receiveShadow = true;
+    wall45.castShadow = true;
+    wall45.receiveShadow = true;
 
-    crate45.position.set(-25, 5, -30);
-    crate45.scale.set(30, 10);
+    wall45.position.set(-25, 5, -30);
+    wall45.scale.set(30, 10);
 
-    scene.add(crate45);
+    scene.add(wall45);
+    objects.push( wall45 );
 
-    var crate46 = new THREE.Mesh(
+    var wall46 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate46.castShadow = true;
-    crate46.receiveShadow = true;
+    wall46.castShadow = true;
+    wall46.receiveShadow = true;
 
-    crate46.position.set(40, 5, -40);
-    crate46.rotation.y = Math.PI/2;
-    crate46.scale.set(20, 10);
+    wall46.position.set(40, 5, -40);
+    wall46.rotation.y = Math.PI/2;
+    wall46.scale.set(20, 10);
 
-    scene.add(crate46);
+    scene.add(wall46);
+    objects.push( wall46 );
 
-    var crate47 = new THREE.Mesh(
+    var wall47 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate47.castShadow = true;
-    crate47.receiveShadow = true;
+    wall47.castShadow = true;
+    wall47.receiveShadow = true;
 
-    crate47.position.set(10, 5, -40);
-    crate47.rotation.y = Math.PI/2;
-    crate47.scale.set(20, 10);
+    wall47.position.set(10, 5, -40);
+    wall47.rotation.y = Math.PI/2;
+    wall47.scale.set(20, 10);
 
-    scene.add(crate47);
+    scene.add(wall47);
+    objects.push( wall47 );
 
-    var crate48 = new THREE.Mesh(
+    var wall48 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate48.castShadow = true;
-    crate48.receiveShadow = true;
+    wall48.castShadow = true;
+    wall48.receiveShadow = true;
 
-    crate48.position.set(-20, 5, -35);
-    crate48.rotation.y = Math.PI/2;
-    crate48.scale.set(10, 10);
+    wall48.position.set(-20, 5, -35);
+    wall48.rotation.y = Math.PI/2;
+    wall48.scale.set(10, 10);
 
-    scene.add(crate48);
+    scene.add(wall48);
+    objects.push( wall48 );
 
-    var crate49 = new THREE.Mesh(
+    var wall49 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate49.castShadow = true;
-    crate49.receiveShadow = true;
+    wall49.castShadow = true;
+    wall49.receiveShadow = true;
 
-    crate49.position.set(25, 5, -40);
-    crate49.scale.set(10, 10);
+    wall49.position.set(25, 5, -40);
+    wall49.scale.set(10, 10);
 
-    scene.add(crate49);
+    scene.add(wall49);
+    objects.push( wall49);
 
-    var crate50 = new THREE.Mesh(
+    var wall50 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate50.castShadow = true;
-    crate50.receiveShadow = true;
+    wall50.castShadow = true;
+    wall50.receiveShadow = true;
 
-    crate50.position.set(-5, 5, -40);
-    crate50.scale.set(10, 10);
+    wall50.position.set(-5, 5, -40);
+    wall50.scale.set(10, 10);
 
-    scene.add(crate50);
+    scene.add(wall50);
+    objects.push( wall50 );
 
-    var crate51 = new THREE.Mesh(
+    var wall51 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate51.castShadow = true;
-    crate40.receiveShadow = true;
+    wall51.castShadow = true;
+    wall40.receiveShadow = true;
 
-    crate51.position.set(-5, 5, -40);
-    crate51.scale.set(10, 10);
+    wall51.position.set(-5, 5, -40);
+    wall51.scale.set(10, 10);
 
-    scene.add(crate51);
+    scene.add(wall51);
+    objects.push( wall51 );
 
-    var crate52 = new THREE.Mesh(
+    var wall52 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate52.castShadow = true;
-    crate52.receiveShadow = true;
+    wall52.castShadow = true;
+    wall52.receiveShadow = true;
 
-    crate52.position.set(-10, 5, -45);
-    crate52.rotation.y = Math.PI/2;
-    crate52.scale.set(10, 10);
+    wall52.position.set(-10, 5, -45);
+    wall52.rotation.y = Math.PI/2;
+    wall52.scale.set(10, 10);
 
-    scene.add(crate52);
+    scene.add(wall52);
+    objects.push( wall52 );
 
-    var crate53 = new THREE.Mesh(
+    var wall53 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTexture,
             }
         ),
     );
-    crate53.castShadow = true;
-    crate53.receiveShadow = true;
+    wall53.castShadow = true;
+    wall53.receiveShadow = true;
 
-    crate53.position.set(-30, 5, -45);
-    crate53.rotation.y = Math.PI/2;
-    crate53.scale.set(10, 10);
+    wall53.position.set(-30, 5, -45);
+    wall53.rotation.y = Math.PI/2;
+    wall53.scale.set(10, 10);
 
-    scene.add(crate53);
+    scene.add(wall53);
+    objects.push( wall53 );
 
-    var crate54 = new THREE.Mesh(
+    var wall54 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate54.castShadow = true;
-    crate54.receiveShadow = true;
+    wall54.castShadow = true;
+    wall54.receiveShadow = true;
 
-    crate54.position.set(25, 5, -50);
-    crate54.scale.set(50, 10);
+    wall54.position.set(20, 5, -50);
+    wall54.scale.set(60, 10);
 
-    scene.add(crate54);
+    scene.add(wall54);
+    objects.push( wall54 );
 
-    var crate55 = new THREE.Mesh(
+    var wall55 = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshPhongMaterial(
             {
                 side: THREE.DoubleSide,
                 wireframe: false,
-                map:crateTexture,
+                map:wallTextureMedium,
             }
         ),
     );
-    crate55.castShadow = true;
-    crate55.receiveShadow = true;
+    wall55.castShadow = true;
+    wall55.receiveShadow = true;
 
-    crate55.position.set(-30, 5, -50);
-    crate55.scale.set(40, 10);
+    wall55.position.set(-30, 5, -50);
+    wall55.scale.set(40, 10);
 
-    scene.add(crate55);
+    scene.add(wall55);
+    objects.push( wall55 );
 
-
-
-    animate();
-    window.addEventListener( 'resize', onWindowResize );
-}
-function onWindowResize() {
-
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize( window.innerWidth, window.innerHeight );
-
-}
-
-function animate(){
-    requestAnimationFrame(animate);
-    const time = performance.now();
-    if ( controls.isLocked === true ) {
-        const delta = ( time - prevTime ) / 1000;
-        velocity.x -= velocity.x * 15.0 * delta;
-		velocity.z -= velocity.z * 15.0 * delta;
-        direction.z = Number( moveForward ) - Number( moveBackward );
-		direction.x = Number( moveRight ) - Number( moveLeft );
-        direction.normalize();
-        if ( moveForward || moveBackward ) velocity.z -= direction.z * 400.0 * delta;
-		if ( moveLeft || moveRight ) velocity.x -= direction.x * 400.0 * delta;
-        controls.moveRight( - velocity.x * delta );
-		controls.moveForward( - velocity.z * delta );
-    
-    }
-    prevTime = time;
-
-
-    renderer.render(scene, camera);
 }
 
 window.onload = init;

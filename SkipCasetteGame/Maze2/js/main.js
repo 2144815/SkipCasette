@@ -1,6 +1,7 @@
 import * as THREE from 'https://unpkg.com/three@0.125.2/build/three.module.js';
 import {OrbitControls} from 'https://unpkg.com/three@0.125.2/examples/jsm/controls/OrbitControls.js'
 import {PointerLockControls} from 'https://unpkg.com/three@0.125.2/examples/jsm/controls/PointerLockControls.js'
+import { GLTFLoader } from 'https://unpkg.com/three@0.125.2/examples/jsm/loaders/GLTFLoader.js';
 
 var scene, camera, renderer, mesh, ambientLight, pointLight, sky, controls;
 var moveForward = false;
@@ -8,17 +9,119 @@ var moveBackward = false;
 var moveLeft = false;
 var moveRight = false;
 
+const objects = [];
+
+let raycaster;
+
 var prevTime = performance.now();
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 
 function init(){
+    //start door
+    var loader = new GLTFLoader();
+    loader.load('./resources/Door.gltf', function (gltf) {
+    gltf.scene.scale.set(5, 2.2, 4);
+    gltf.scene.position.z = -50;
+    gltf.scene.position.x -= 5;
+	scene.add(gltf.scene);
+
+    gltf.scene.traverse(function (node) {
+        if (node instanceof THREE.Mesh) {
+            objects.push(node);
+        }
+    });
+
+    }, undefined, function (error) {
+
+	    console.error(error);
+
+    });
+    //end door
+    loader.load('./resources/Door.gltf', function (gltf) {
+        gltf.scene.scale.set(5, 2.2, 4);
+        gltf.scene.position.z = 50;
+        gltf.scene.position.x += 10;
+        gltf.scene.rotation.y -= Math.PI;
+        scene.add(gltf.scene);
+    
+        gltf.scene.traverse(function (node) {
+            if (node instanceof THREE.Mesh) {
+                objects.push(node);
+            }
+        });
+    
+        }, undefined, function (error) {
+    
+            console.error(error);
+    
+        });
+
+
+        //start of maze door lantern
+        loader = new GLTFLoader();
+        loader.load('./model/scene.gltf', function (gltf) {
+        gltf.scene.position.z = -35;
+        gltf.scene.rotation.y += Math.PI/2;
+        gltf.scene.position.x = -10;
+
+        scene.add(gltf.scene);
+    
+        gltf.scene.traverse(function (node) {
+            if (node instanceof THREE.Mesh) {
+                objects.push(node);
+            }
+        });
+    
+        }, undefined, function (error) {
+    
+            console.error(error);
+    
+        });
+
+        //end of maze door lantern
+        loader = new GLTFLoader();
+        loader.load('./model/scene.gltf', function (gltf) {
+        gltf.scene.position.z = 45;
+        gltf.scene.rotation.y += -Math.PI/2;
+        gltf.scene.position.x = 29;
+
+        scene.add(gltf.scene);
+    
+        gltf.scene.traverse(function (node) {
+            if (node instanceof THREE.Mesh) {
+                objects.push(node);
+            }
+        });
+    
+        }, undefined, function (error) {
+    
+            console.error(error);
+    
+        });
 
     scene = new THREE.Scene();
+
+    //black fog
+    var density = 0.1;
+    scene.fog = new THREE.FogExp2(0x000000, density);
     camera = new THREE.PerspectiveCamera(90, (window.innerWidth/window.innerHeight), 0.1, 1000);
 
-    camera.position.set(-5, 3, -60);
+    camera.position.set(-5, 3, -45);
     camera.lookAt(0, 0, 0);
+
+    //background sound
+    const listener = new THREE.AudioListener();
+    const sound = new THREE.Audio(listener);
+    camera.add(listener)
+    const audioLoader = new THREE.AudioLoader();
+    audioLoader.load( 'resources/Sci-Fi Space Alarm Sound Effect for Games-[AudioTrimmer.com] (1).mp3', function( buffer ) {
+         sound.setBuffer( buffer );
+         sound.setLoop( true );
+         sound.setVolume( 1 );
+         sound.play();
+    });
+
 
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth,window.innerHeight);
@@ -77,11 +180,11 @@ function init(){
         document.addEventListener( 'keydown', onKeyDown );
         document.addEventListener( 'keyup', onKeyUp );
     
-    
+        raycaster = new THREE.Raycaster( new THREE.Vector3(), new THREE.Vector3( 0, - 1, 0 ), 0, 10 );
 
 
 
-    var textureLoader = new THREE.TextureLoader()
+    var textureLoader = new THREE.TextureLoader();
 
     mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(1,1),
@@ -163,7 +266,7 @@ function init(){
 
     );
 
-    ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
     pointLight = new THREE.PointLight(0xffffff, 1, 100,2);
@@ -172,6 +275,20 @@ function init(){
     pointLight.shadow.camera.near = 0.1;
     pointLight.shadow.camera.far = 25;
     scene.add(pointLight);
+
+    var light0 = new THREE.SpotLight( 0xff0000, 1, 20    );
+    light0.position.set( -10, 1, -35 );
+    light0.target.position.set(9, 1, -35);
+    light0.power = 15;
+    scene.add( light0 );
+    scene.add(light0.target);
+
+    var light1 = new THREE.SpotLight( 0x00ff00, 1, 20 );
+    light1.position.set( 29, 1, 45 );
+    light1.target.position.set(-28, 1, 45);
+    light1.power = 20;
+    scene.add( light1 );
+    scene.add(light1.target);
     
     mesh.receiveShadow = true;
     mesh.castShadow = true;
@@ -196,12 +313,17 @@ function init(){
     var wallTexture =new THREE.TextureLoader().load('./resources/wall.jpg');
     wallTexture.wrapS=wallTexture.wrapT=THREE.ClampToEdgeMapping;
     wallTexture.repeat.set(2,1);
-    var wallMaterial=new THREE.MeshStandardMaterial({map:wallTexture});
+    var wallMaterial=new THREE.MeshStandardMaterial({
+        side: THREE.DoubleSide,
+        map:wallTexture});
 
     var wallTextureOuter =new THREE.TextureLoader().load('./resources/wall.jpg');
     wallTextureOuter.wrapS=wallTextureOuter.wrapT=THREE.ClampToEdgeMapping;
     wallTextureOuter.repeat.set(4,1);
-    var wallMaterialOuter=new THREE.MeshStandardMaterial({map:wallTextureOuter});
+    var wallMaterialOuter=new THREE.MeshStandardMaterial({
+        side: THREE.DoubleSide,
+        map:wallTextureOuter
+    });
 
     // creating 2nd maze
 
@@ -213,6 +335,7 @@ function init(){
     wall0.castShadow=true;
     wall0.receiveShadow=true;
     scene.add(wall0);
+    objects.push( wall0 );
 
     var wall1 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterialOuter);
     wall1.scale.set(100,10);
@@ -221,6 +344,7 @@ function init(){
     wall1.castShadow=true;
     wall1.receiveShadow=true;
     scene.add(wall1);
+    objects.push( wall1 );
 
     var wall2 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterialOuter);
     wall2.scale.set(52,10);
@@ -228,20 +352,23 @@ function init(){
     wall2.castShadow=true;
     wall2.receiveShadow=true;
     scene.add(wall2);
+    objects.push( wall2 );
 
     var wall3 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterialOuter);
-    wall3.scale.set(40,10);
-    wall3.position.set(-30.5,2,-50);
+    wall3.scale.set(49,10);
+    wall3.position.set(-26.1,2,-50);
     wall3.castShadow=true;
     wall3.receiveShadow=true;
     scene.add(wall3);
+    objects.push( wall3 );
 
     var wall4 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterialOuter);
-    wall4.scale.set(41.6,10);
-    wall4.position.set(29.68,2,50);
+    wall4.scale.set(49,10);
+    wall4.position.set(26,2,50);
     wall4.castShadow=true;
     wall4.receiveShadow=true;
     scene.add(wall4);
+    objects.push( wall4 );
 
     var wall5 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterialOuter);
     wall5.scale.set(52,10);
@@ -249,6 +376,7 @@ function init(){
     wall5.castShadow=true;
     wall5.receiveShadow=true;
     scene.add(wall5);
+    objects.push( wall5 );
 
     //inner walls from bottom of maze(entrance), up.
     
@@ -259,6 +387,7 @@ function init(){
     wall6.castShadow=true;
     wall6.receiveShadow=true;
     scene.add(wall6);
+    objects.push( wall6 );
 
     var wall7 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall7.scale.set(18,10);
@@ -266,6 +395,7 @@ function init(){
     wall7.castShadow=true;
     wall7.receiveShadow=true;
     scene.add(wall7);
+    objects.push( wall7 );
 
     var wall8 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall8.scale.set(9,10);
@@ -274,6 +404,7 @@ function init(){
     wall8.castShadow=true;
     wall8.receiveShadow=true;
     scene.add(wall8);
+    objects.push( wall8 );
 
     var wall9 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall9.scale.set(19.5,10);
@@ -282,6 +413,7 @@ function init(){
     wall9.castShadow=true;
     wall9.receiveShadow=true;
     scene.add(wall9);
+    objects.push( wall9 );
 
     var wall10 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall10.scale.set(10.4,10);
@@ -289,6 +421,7 @@ function init(){
     wall10.castShadow=true;
     wall10.receiveShadow=true;
     scene.add(wall10);
+    objects.push( wall10 );
 
     var wall11 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall11.scale.set(19.5,10);
@@ -297,6 +430,7 @@ function init(){
     wall11.castShadow=true;
     wall11.receiveShadow=true;
     scene.add(wall11);
+    objects.push( wall11 );
 
     var wall12 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall12.scale.set(26,10);
@@ -305,6 +439,7 @@ function init(){
     wall12.castShadow=true;
     wall12.receiveShadow=true;
     scene.add(wall12);
+    objects.push( wall12 );
 
     var wall13 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall13.scale.set(30,10);
@@ -312,6 +447,7 @@ function init(){
     wall13.castShadow=true;
     wall13.receiveShadow=true;
     scene.add(wall13);
+    objects.push( wall13 );
 
     var wall14 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall14.scale.set(19.5,10);
@@ -320,6 +456,7 @@ function init(){
     wall14.castShadow=true;
     wall14.receiveShadow=true;
     scene.add(wall14);
+    objects.push( wall14 );
 
     var wall15 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall15.scale.set(9,10);
@@ -328,6 +465,7 @@ function init(){
     wall15.castShadow=true;
     wall15.receiveShadow=true;
     scene.add(wall15);
+    objects.push( wall15 );
 
     var wall16 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall16.scale.set(9,10);
@@ -336,6 +474,7 @@ function init(){
     wall16.castShadow=true;
     wall16.receiveShadow=true;
     scene.add(wall16);
+    objects.push( wall16 );
 
     var wall17 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall17.scale.set(9,10);
@@ -343,6 +482,7 @@ function init(){
     wall17.castShadow=true;
     wall17.receiveShadow=true;
     scene.add(wall17);
+    objects.push( wall17 );
 
     var wall18 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall18.scale.set(9,10);
@@ -351,6 +491,7 @@ function init(){
     wall18.castShadow=true;
     wall18.receiveShadow=true;
     scene.add(wall18);
+    objects.push( wall8 );
 
     var wall19 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall19.scale.set(30,10);
@@ -358,6 +499,7 @@ function init(){
     wall19.castShadow=true;
     wall19.receiveShadow=true;
     scene.add(wall19);
+    objects.push( wall19 );
     
     var wall20 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall20.scale.set(20,10);
@@ -366,6 +508,7 @@ function init(){
     wall20.castShadow=true;
     wall20.receiveShadow=true;
     scene.add(wall20);
+    objects.push( wall20 );
 
     var wall21 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall21.scale.set(9,10);
@@ -374,6 +517,7 @@ function init(){
     wall21.castShadow=true;
     wall21.receiveShadow=true;
     scene.add(wall21);
+    objects.push( wall21 );
 
     var wall22 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall22.scale.set(19,10);
@@ -381,6 +525,7 @@ function init(){
     wall22.castShadow=true;
     wall22.receiveShadow=true;
     scene.add(wall22);
+    objects.push( wall22 );
 
     var wall23 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall23.scale.set(9,10);
@@ -388,6 +533,7 @@ function init(){
     wall23.castShadow=true;
     wall23.receiveShadow=true;
     scene.add(wall23);
+    objects.push( wall23 );
 
     var wall24 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall24.scale.set(20,10);
@@ -396,6 +542,7 @@ function init(){
     wall24.castShadow=true;
     wall24.receiveShadow=true;
     scene.add(wall24);
+    objects.push( wall24 );
 
     var wall25 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall25.scale.set(20,10);
@@ -403,6 +550,7 @@ function init(){
     wall25.castShadow=true;
     wall25.receiveShadow=true;
     scene.add(wall25);
+    objects.push( wall25 );
 
     var wall26 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall26.scale.set(9,10);
@@ -411,6 +559,7 @@ function init(){
     wall26.castShadow=true;
     wall26.receiveShadow=true;
     scene.add(wall26);
+    objects.push( wall26 );
 
     var wall27 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall27.scale.set(31,10);
@@ -418,6 +567,7 @@ function init(){
     wall27.castShadow=true;
     wall27.receiveShadow=true;
     scene.add(wall27);
+    objects.push( wall27 );
 
     var wall28 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall28.scale.set(20.8,10);
@@ -425,6 +575,7 @@ function init(){
     wall28.castShadow=true;
     wall28.receiveShadow=true;
     scene.add(wall28);
+    objects.push( wall28 );
 
     var wall29 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall29.scale.set(20.8,10);
@@ -433,6 +584,7 @@ function init(){
     wall29.castShadow=true;
     wall29.receiveShadow=true;
     scene.add(wall29);
+    objects.push( wall29 );
 
     var wall30 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall30.scale.set(9,10);
@@ -441,6 +593,7 @@ function init(){
     wall30.castShadow=true;
     wall30.receiveShadow=true;
     scene.add(wall30);
+    objects.push( wall30 );
 
     var wall31 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall31.scale.set(20.8,10);
@@ -448,6 +601,7 @@ function init(){
     wall31.castShadow=true;
     wall31.receiveShadow=true;
     scene.add(wall31);
+    objects.push( wall31 );
 
     var wall32 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall32.scale.set(20.8,10);
@@ -456,6 +610,7 @@ function init(){
     wall32.castShadow=true;
     wall32.receiveShadow=true;
     scene.add(wall32);
+    objects.push( wall32 );
 
     var wall33 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall33.scale.set(20.8,10);
@@ -463,6 +618,7 @@ function init(){
     wall33.castShadow=true;
     wall33.receiveShadow=true;
     scene.add(wall33);
+    objects.push( wall33 );
 
     var wall34 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall34.scale.set(9,10);
@@ -471,6 +627,7 @@ function init(){
     wall34.castShadow=true;
     wall34.receiveShadow=true;
     scene.add(wall34);
+    objects.push( wall34 );
 
     var wall35 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall35.scale.set(20,10);
@@ -478,6 +635,7 @@ function init(){
     wall35.castShadow=true;
     wall35.receiveShadow=true;
     scene.add(wall35);
+    objects.push( wall35 );
 
     var wall36 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall36.scale.set(9,10);
@@ -486,6 +644,7 @@ function init(){
     wall36.castShadow=true;
     wall36.receiveShadow=true;
     scene.add(wall36);
+    objects.push( wall36 );
 
     var wall37 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall37.scale.set(20.8,10);
@@ -494,6 +653,7 @@ function init(){
     wall37.castShadow=true;
     wall37.receiveShadow=true;
     scene.add(wall37);
+    objects.push( wall37 );
 
     var wall38 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall38.scale.set(9,10);
@@ -501,6 +661,7 @@ function init(){
     wall38.castShadow=true;
     wall38.receiveShadow=true;
     scene.add(wall38);
+    objects.push( wall38 );
 
     var wall39 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall39.scale.set(9,10);
@@ -509,6 +670,7 @@ function init(){
     wall39.castShadow=true;
     wall39.receiveShadow=true;
     scene.add(wall39);
+    objects.push( wall39 );
 
     var wall40 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall40.scale.set(35,10);
@@ -517,6 +679,7 @@ function init(){
     wall40.castShadow=true;
     wall40.receiveShadow=true;
     scene.add(wall40);
+    objects.push( wall40 );
 
     var wall41 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall41.scale.set(9,10);
@@ -524,6 +687,7 @@ function init(){
     wall41.castShadow=true;
     wall41.receiveShadow=true;
     scene.add(wall41);
+    objects.push( wall41 );
 
     var wall42 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall42.scale.set(12,10);
@@ -532,6 +696,7 @@ function init(){
     wall42.castShadow=true;
     wall42.receiveShadow=true;
     scene.add(wall42);
+    objects.push( wall42 );
 
     var wall43 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall43.scale.set(12,10);
@@ -540,6 +705,7 @@ function init(){
     wall43.castShadow=true;
     wall43.receiveShadow=true;
     scene.add(wall43);
+    objects.push( wall43 );
 
     var wall44 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall44.scale.set(32.5,10);
@@ -547,6 +713,7 @@ function init(){
     wall44.castShadow=true;
     wall44.receiveShadow=true;
     scene.add(wall44);
+    objects.push( wall44 );
 
     var wall45 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall45.scale.set(24,10);
@@ -555,6 +722,7 @@ function init(){
     wall45.castShadow=true;
     wall45.receiveShadow=true;
     scene.add(wall45);
+    objects.push( wall45 );
 
     var wall46 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall46.scale.set(24,10);
@@ -563,6 +731,7 @@ function init(){
     wall46.castShadow=true;
     wall46.receiveShadow=true;
     scene.add(wall46);
+    objects.push( wall46 );
 
     var wall47 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall47.scale.set(10,10);
@@ -570,6 +739,7 @@ function init(){
     wall47.castShadow=true;
     wall47.receiveShadow=true;
     scene.add(wall47);
+    objects.push( wall47 );
 
     var wall48 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1),wallMaterial);
     wall48.scale.set(15,10);
@@ -578,6 +748,7 @@ function init(){
     wall48.castShadow=true;
     wall48.receiveShadow=true;
     scene.add(wall48);
+    objects.push( wall48 );
 
     var wall49 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall49.scale.set(40,10);
@@ -585,6 +756,7 @@ function init(){
     wall49.castShadow=true;
     wall49.receiveShadow=true;
     scene.add(wall49);
+    objects.push( wall49 );
 
     var wall50 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall50.scale.set(12,10);
@@ -593,6 +765,7 @@ function init(){
     wall50.castShadow=true;
     wall50.receiveShadow=true;
     scene.add(wall50);
+    objects.push( wall50 );
 
     var wall51 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall51.scale.set(12,10);
@@ -600,6 +773,7 @@ function init(){
     wall51.castShadow=true;
     wall51.receiveShadow=true;
     scene.add(wall51);
+    objects.push( wall51 );
 
     var wall52 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall52.scale.set(12,10);
@@ -608,6 +782,7 @@ function init(){
     wall52.castShadow=true;
     wall52.receiveShadow=true;
     scene.add(wall52);
+    objects.push( wall52 );
 
     var wall53 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), wallMaterial);
     wall53.scale.set(12,10);
@@ -615,6 +790,7 @@ function init(){
     wall53.castShadow=true;
     wall53.receiveShadow=true;
     scene.add(wall53);
+    objects.push( wall53 );
 
 
     animate();
@@ -634,14 +810,42 @@ function animate(){
     requestAnimationFrame(animate);
     const time = performance.now();
     if ( controls.isLocked === true ) {
+
+        raycaster.ray.origin.copy( controls.getObject().position );
+
+        const intersections = raycaster.intersectObjects( objects );
+
+		const onObject = intersections.length > 0;
+
         const delta = ( time - prevTime ) / 1000;
-        velocity.x -= velocity.x * 20.0 * delta;
-		velocity.z -= velocity.z * 20.0 * delta;
+        velocity.x -= velocity.x * 15.0 * delta;
+		velocity.z -= velocity.z * 15.0 * delta;
         direction.z = Number( moveForward ) - Number( moveBackward );
 		direction.x = Number( moveRight ) - Number( moveLeft );
         direction.normalize();
         if ( moveForward || moveBackward ) velocity.z -= direction.z * 400.0 * delta;
 		if ( moveLeft || moveRight ) velocity.x -= direction.x * 400.0 * delta;
+
+        if ( onObject === true ) {
+
+            velocity.x = -(velocity.x*2);
+            velocity.z = -(velocity.z*2);
+            velocity.y = 0;
+
+            //collision sound
+            const listener = new THREE.AudioListener();
+            const sound = new THREE.Audio(listener);
+            camera.add(listener)
+            const audioLoader = new THREE.AudioLoader();
+            audioLoader.load( 'resources/WoodCrashesDistant.mp3', function( buffer ) {
+                sound.setBuffer( buffer );
+                sound.setLoop( false );
+                sound.setVolume( 0.1 );
+                sound.play();
+            });
+        
+        }
+
         controls.moveRight( - velocity.x * delta );
 		controls.moveForward( - velocity.z * delta );
     
